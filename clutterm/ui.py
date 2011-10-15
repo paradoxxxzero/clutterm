@@ -27,22 +27,22 @@ class Clutterm(object):
         self.linesBoxManager.set_vertical(True)
         self.linesBoxManager.set_homogeneous(False)
         self.linesBoxManager.set_pack_start(False)
-        self.linesBoxManager.set_use_animations(True)
-        self.linesBoxManager.set_easing_duration(100)
+        # self.linesBoxManager.set_use_animations(True)
+        self.linesBoxManager.set_easing_duration(250)
 
         # Create line layout
         self.lineManager = Clutter.BoxLayout()
         self.lineManager.set_homogeneous(False)
         self.lineManager.set_pack_start(False)
-        self.lineManager.set_use_animations(True)
-        self.lineManager.set_easing_duration(100)
+        # self.lineManager.set_use_animations(True)
+        self.lineManager.set_easing_duration(250)
 
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
         self.linesBox.set_color(colorBlack)
         self.mainStage.add_actor(self.linesBox)
         self.line = None
-
+        self.stay = False
         # Make the main window fill the entire stage
         mainGeometry = self.mainStage.get_geometry()
         self.linesBox.set_geometry(mainGeometry)
@@ -80,7 +80,10 @@ class Clutterm(object):
                     self.cursor = 0
                 else:
                     self._write(char)
-                    self.cursor += 1
+                    if not self.stay:
+                        self.cursor += 1
+                    else:
+                        self.stay = False
 
     def _write(self, text, color=colorWhite):
         if self.cursor < len(Clutter.Container.get_children(self.line)):
@@ -92,11 +95,16 @@ class Clutterm(object):
             ctext.show()
 
     def new_line(self):
+        i = 0
+        l = Clutter.Container.get_children(self.linesBox)
+        l.reverse()
+        for line in l:
+            line.set_rotation(1, i, 0, 0, 0)
+            i += 2
         self.line = Clutter.Box.new(self.lineManager)
         self.line.set_color(colorBlack)
         self.linesBoxManager.set_alignment(self.line, 0, 0)
         self.linesBox.add_actor(self.line)
-        # self.line.add_effect(Clutter.BlurEffect())
 
     def destroy(self):
         Clutter.main_quit()
@@ -106,16 +114,15 @@ class Clutterm(object):
         Basic key binding handler
         """
         val = event.key.unicode_value
-        if val == 65288:
-            children = Clutter.Container.get_children(self.line)
-            if len(children) > 0:
-                Clutter.Container.remove_actor(
-                    self.line,
-                    children[-1])
-
-        self.shell.write(val)
+        if val == '\x08':
+            if self.cursor > 0:
+                self.cursor -= 1
+                # Find a better way
+                self.stay = True
         if val == '\x04':
             self.destroy()
+
+        self.shell.write(val)
 
         #     # Evaluate the key modifiers
         #     state = event.get_state()
