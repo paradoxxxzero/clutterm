@@ -20,7 +20,7 @@ class Shell(object):
     def read(self):
         read = self.reader.read(1024)
         if read:
-            log.info('R<%r>' % read)
+            log.info('R<%s>' % read)
         else:
             log.debug('R')
         return read

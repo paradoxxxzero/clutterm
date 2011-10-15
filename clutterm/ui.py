@@ -41,6 +41,7 @@ class Clutterm(object):
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
         self.linesBox.set_color(colorBlack)
         self.mainStage.add_actor(self.linesBox)
+        self.line = None
 
         # Make the main window fill the entire stage
         mainGeometry = self.mainStage.get_geometry()
@@ -51,12 +52,17 @@ class Clutterm(object):
 
     def interact(self):
         self.shell = Shell()
+        self.cursor = 0
         self.new_line()
 
         def update(read):
             self.write(self.shell.read())
 
-        self.reader = Clutter.Timeline.new(5)
+        # This is so bad...
+        # Really need to find a way to put a thread or an asyncore
+        # Without clutter threading problems
+        # Polling for now
+        self.reader = Clutter.Timeline.new(1)
         self.reader.set_loop(True)
         self.reader.connect('completed', update)
         self.reader.start()
@@ -65,24 +71,32 @@ class Clutterm(object):
         self.mainStage.connect_after("key-press-event", self.onKeyPress)
 
     def write(self, text):
-        text = text.replace('\r', '')
-        lines = text.split('\n')
-        for line in lines:
-            self._write(line)
-            if line is not lines[len(lines) - 1]:
-                self.new_line()
+        if text != '':
+            for char in text:
+                if char == '\r':
+                    self.cursor = 0
+                elif char == '\n':
+                    self.new_line()
+                    self.cursor = 0
+                else:
+                    self._write(char)
+                    self.cursor += 1
 
     def _write(self, text, color=colorWhite):
-        if text != '':
-            self.clutterText = Clutter.Text.new_full("Mono 10", text, color)
-            Clutter.Container.add_actor(self.line, self.clutterText)
-            self.clutterText.show()
+        if self.cursor < len(Clutter.Container.get_children(self.line)):
+            Clutter.Container.get_children(
+                self.line)[self.cursor].set_text(text)
+        else:
+            ctext = Clutter.Text.new_full("Mono 10", text, color)
+            Clutter.Container.add_actor(self.line, ctext)
+            ctext.show()
 
     def new_line(self):
         self.line = Clutter.Box.new(self.lineManager)
         self.line.set_color(colorBlack)
         self.linesBoxManager.set_alignment(self.line, 0, 0)
         self.linesBox.add_actor(self.line)
+        # self.line.add_effect(Clutter.BlurEffect())
 
     def destroy(self):
         Clutter.main_quit()
@@ -91,29 +105,33 @@ class Clutterm(object):
         """
         Basic key binding handler
         """
-        if event.key.keyval > 255:
-            if event.key.keyval == 65293:  # enter
-                self.shell.write('\n')
-        else:
-            char = chr(event.key.keyval)
-            # Evaluate the key modifiers
-            state = event.get_state()
-            if (state & state.SHIFT_MASK == state.SHIFT_MASK):
-                modShift = True
-            else:
-                modShift = False
+        val = event.key.unicode_value
+        if val == 65288:
+            children = Clutter.Container.get_children(self.line)
+            if len(children) > 0:
+                Clutter.Container.remove_actor(
+                    self.line,
+                    children[-1])
 
-            if (state & state.CONTROL_MASK == state.CONTROL_MASK):
-                modControl = True
-            else:
-                modControl = False
+        self.shell.write(val)
+        if val == '\x04':
+            self.destroy()
 
-            if (state & state.META_MASK == state.META_MASK):
-                modMeta = True
-            else:
-                modMeta = False
+        #     # Evaluate the key modifiers
+        #     state = event.get_state()
+        #     if (state & state.SHIFT_MASK == state.SHIFT_MASK):
+        #         modShift = True
+        #     else:
+        #         modShift = False
 
-            self.shell.write(char)
+        #     if (state & state.CONTROL_MASK == state.CONTROL_MASK):
+        #         modControl = True
+        #     else:
+        #         modControl = False
 
-            if (modControl and char == 'd'):
-                self.destroy()
+        #     if (state & state.META_MASK == state.META_MASK):
+        #         modMeta = True
+        #     else:
+        #         modMeta = False
+
+        # if (modControl and char == 'd'):
