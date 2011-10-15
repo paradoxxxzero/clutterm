@@ -17,44 +17,38 @@ class Shell(object):
         self.cols = cols
         self.fork()
 
-    def _read(self):
-        read = self.reader.read(65536)
-        log.info('R<%r>' % read)
-        return read
-
     def read(self):
-        read = self._read()
-        while read == '':
-            read = self._read()
+        read = self.reader.read(1024)
+        if read:
+            log.info('R<%r>' % read)
+        else:
+            log.debug('R')
         return read
 
     def write(self, text):
-        log.info('W<%r>' % text)
+        log.info('W     <%r>' % text)
         self.writer.write(text)
         self.writer.flush()
 
     def fork(self):
         pid, fd = pty.fork()
         if pid == 0:
-            print("Welcome to clutterm !!\n")
             # Child
-            # try:
-            #     # Enumerate our file descriptors
-            #     fd_list = [int(i) for i in os.listdir('/proc/self/fd')]
-            # except OSError:
-            #     fd_list = xrange(256)
-            # # Close all file descriptors other than
-            # # stdin, stdout, and stderr (0, 1, 2)
-            # for i in [i for i in fd_list if i > 2]:
-            #     try:
-            #         os.close(i)
-            #     except OSError:
-            #         pass
-            # if not self.env:
+            try:
+                fd_list = [int(i) for i in os.listdir('/proc/self/fd')]
+            except OSError:
+                fd_list = xrange(256)
+            # Close all file descriptors other than
+            # stdin, stdout, and stderr (0, 1, 2)
+            for i in [i for i in fd_list if i > 2]:
+                try:
+                    os.close(i)
+                except OSError:
+                    pass
             self.env = {}
-            # self.env["COLUMNS"] = str(self.cols)
-            # self.env["LINES"] = str(self.rows)
-            # self.env["TERM"] = "xterm"
+            self.env["COLUMNS"] = str(self.cols)
+            self.env["LINES"] = str(self.rows)
+            self.env["TERM"] = "clutterm"
             p = Popen((self.shell, "-f"), env=self.env)
             p.wait()
         else:

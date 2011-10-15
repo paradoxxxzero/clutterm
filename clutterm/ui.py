@@ -10,7 +10,8 @@ colorRed = Clutter.Color.new(255, 0, 0, 255)
 colorBlack = Clutter.Color.new(0, 0, 0, 0)
 
 
-class Clutterm:
+class Clutterm(object):
+
     def __init__(self):
         """
         Build the user interface.
@@ -51,18 +52,24 @@ class Clutterm:
     def interact(self):
         self.shell = Shell()
         self.new_line()
-        self.write(self.shell.read())
-        self.write(self.shell.read())
+
+        def update(read):
+            self.write(self.shell.read())
+
+        self.reader = Clutter.Timeline.new(5)
+        self.reader.set_loop(True)
+        self.reader.connect('completed', update)
+        self.reader.start()
 
         # Setup some key bindings on the main stage
         self.mainStage.connect_after("key-press-event", self.onKeyPress)
 
     def write(self, text):
-        text = text.replace('\r', '\n')
+        text = text.replace('\r', '')
         lines = text.split('\n')
         for line in lines:
             self._write(line)
-            if line is not lines[0]:
+            if line is not lines[len(lines) - 1]:
                 self.new_line()
 
     def _write(self, text, color=colorWhite):
@@ -87,7 +94,6 @@ class Clutterm:
         if event.key.keyval > 255:
             if event.key.keyval == 65293:  # enter
                 self.shell.write('\n')
-                self.write(self.shell.read())
         else:
             char = chr(event.key.keyval)
             # Evaluate the key modifiers
@@ -108,7 +114,6 @@ class Clutterm:
                 modMeta = False
 
             self.shell.write(char)
-            self.write(self.shell.read())
 
             if (modControl and char == 'd'):
                 self.destroy()
