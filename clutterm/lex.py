@@ -31,11 +31,9 @@ bold_color = {
 }
 
 
-def lex(text, length, set_title):
+def lex(text, cursor, string, set_title):
     """Mayhem function"""
     i = 0
-    cursor = 0
-    string = [' ' for i in range(length)]
     while i != len(text):
         char = text[i]
         i += 1
@@ -86,10 +84,16 @@ def lex(text, length, set_title):
                              (type, n, m))
                     if type == 'C':
                         cursor += n
+                        if cursor > len(string):
+                            log.warn('Cursor too far at %d' % cursor)
+                            cursor = len(string) - 1
                     if type == 'D':
                         cursor -= n
+                        if cursor < 0:
+                            log.warn('Cursor too far at %d' % cursor)
+                            cursor = 0
                     if type == 'm':
-                        if n < 30 or n == 39 or n == 49:
+                        if n < 30 or n in (39, 49):
                             char = '</span><span>'
                         elif m == 1:
                             char = ('</span><span foreground="%s">' %
@@ -97,14 +101,16 @@ def lex(text, length, set_title):
                         else:
                             char = ('</span><span foreground="%s">' %
                                     color[n])
-                        string[cursor - 1] += char
+                        # FIXME
+                        if cursor > 0:
+                            string[cursor - 1] += char
                     i += 1
                     continue
         elif char == '\r':
             cursor = 0
             continue
         elif char == '\n':
-            return string, text[i:]
+            return string, text[i:], cursor
         elif char == '\x08':
             cursor -= 1
             continue
@@ -113,4 +119,4 @@ def lex(text, length, set_title):
         else:
             string[cursor] = char
         cursor += 1
-    return string, None
+    return string, None, cursor

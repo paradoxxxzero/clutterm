@@ -32,9 +32,9 @@ class Clutterm(object):
         self.linesBoxManager.set_pack_start(False)
 
         # Globals
-        self.radix = ''
         self.line = None
         self.stay = False
+        self.cursor = 0
 
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
@@ -50,6 +50,7 @@ class Clutterm(object):
 
     def interact(self):
         self.shell = Shell(end_callback=self.destroy)
+        self.radix = [' ' for i in range(self.shell.cols)]
         self.new_line()
 
         def update(read):
@@ -70,22 +71,19 @@ class Clutterm(object):
     def write(self, text):
         if text == '':
             return
-
-        text = ''.join((self.radix, text))
         remaining = text
-        self.radix = remaining
+
         while remaining:
-            string, remaining = lex(remaining, self.shell.cols, self.set_title)
+            string, remaining, self.cursor = lex(
+                remaining, self.cursor, self.radix,
+                self.set_title)
             self.set_line(''.join(string))
             if remaining is not None:
-                self.radix = remaining
+                self.radix = [' ' for i in range(self.shell.cols)]
+                string = []
                 self.new_line()
 
-        # text = re.sub(csi_char_attr, '', text)
-
-        # text = re.sub(csi_useless, '', text)
-        # osc_match = osc.search(text)
-        # text = re.sub(osc, '', text)
+        self.radix = string
 
     def set_title(self, text):
         self.mainStage.set_title(text)
