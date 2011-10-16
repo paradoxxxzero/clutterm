@@ -7,7 +7,7 @@ log = logging.getLogger('clutterm')
 # Define some standard colors to make basic color assigments easier
 colorWhite = Clutter.Color.new(255, 255, 255, 255)
 colorRed = Clutter.Color.new(255, 0, 0, 255)
-colorBlack = Clutter.Color.new(0, 0, 0, 0)
+colorBlack = Clutter.Color.new(0, 0, 0, 150)
 
 
 class Clutterm(object):
@@ -16,11 +16,12 @@ class Clutterm(object):
         """
         Build the user interface.
         """
-        self.mainStage = Clutter.Stage.get_default()
+        self.mainStage = Clutter.Stage.new()
         self.mainStage.set_color(colorBlack)
         self.mainStage.set_title("Clutterminal")
         self.mainStage.set_size(800, 600)
         self.mainStage.set_reactive(True)
+        self.mainStage.set_use_alpha(True)
 
         # Create lines layout
         self.linesBoxManager = Clutter.BoxLayout()
@@ -30,19 +31,16 @@ class Clutterm(object):
         # self.linesBoxManager.set_use_animations(True)
         self.linesBoxManager.set_easing_duration(250)
 
-        # Create line layout
-        self.lineManager = Clutter.BoxLayout()
-        self.lineManager.set_homogeneous(False)
-        self.lineManager.set_pack_start(False)
-        # self.lineManager.set_use_animations(True)
-        self.lineManager.set_easing_duration(250)
+        # Globals
+        self.string = []
+        self.line = None
+        self.stay = False
 
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
         self.linesBox.set_color(colorBlack)
         self.mainStage.add_actor(self.linesBox)
-        self.line = None
-        self.stay = False
+
         # Make the main window fill the entire stage
         mainGeometry = self.mainStage.get_geometry()
         self.linesBox.set_geometry(mainGeometry)
@@ -62,7 +60,7 @@ class Clutterm(object):
         # Really need to find a way to put a thread or an asyncore
         # Without clutter threading problems
         # Polling for now
-        self.reader = Clutter.Timeline.new(1)
+        self.reader = Clutter.Timeline.new(10)
         self.reader.set_loop(True)
         self.reader.connect('completed', update)
         self.reader.start()
@@ -76,33 +74,28 @@ class Clutterm(object):
                 if char == '\r':
                     self.cursor = 0
                 elif char == '\n':
+                    self.line.set_text(''.join(self.string))
+                    self.string = []
                     self.new_line()
                     self.cursor = 0
                 else:
-                    self._write(char)
+                    if self.cursor > len(self.string) - 1:
+                        self.string.append(char)
+                    else:
+                        self.string[self.cursor] = char
+
                     if not self.stay:
                         self.cursor += 1
                     else:
                         self.stay = False
 
-    def _write(self, text, color=colorWhite):
-        if self.cursor < len(Clutter.Container.get_children(self.line)):
-            Clutter.Container.get_children(
-                self.line)[self.cursor].set_text(text)
-        else:
-            ctext = Clutter.Text.new_full("Mono 10", text, color)
-            Clutter.Container.add_actor(self.line, ctext)
-            ctext.show()
+            self.line.set_text(''.join(self.string))
 
     def new_line(self):
-        i = 0
-        l = Clutter.Container.get_children(self.linesBox)
-        l.reverse()
-        for line in l:
-            line.set_rotation(1, i, 0, 0, 0)
-            i += 2
-        self.line = Clutter.Box.new(self.lineManager)
-        self.line.set_color(colorBlack)
+        children = Clutter.Container.get_children(self.linesBox)
+        if len(children) > self.shell.rows:
+            children[0].destroy()
+        self.line = Clutter.Text.new_full("Mono 10", '', colorWhite)
         self.linesBoxManager.set_alignment(self.line, 0, 0)
         self.linesBox.add_actor(self.line)
 

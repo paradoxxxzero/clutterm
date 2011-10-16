@@ -12,13 +12,13 @@ log = logging.getLogger('clutterm')
 class Shell(object):
     shell = os.getenv('SHELL')
 
-    def __init__(self, rows=24, cols=80):
+    def __init__(self, rows=40, cols=80):
         self.rows = rows
         self.cols = cols
         self.fork()
 
     def read(self):
-        read = self.reader.read(1024)
+        read = self.reader.read(65535)
         if read:
             log.info('R<%r>' % read)
         else:
