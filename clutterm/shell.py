@@ -56,6 +56,7 @@ class Shell(object):
             self.env["COLUMNS"] = str(self.cols)
             self.env["LINES"] = str(self.rows)
             self.env["TERM"] = "xterm"
+            self.env["COLORTERM"] = "clutterm"
             self.env["SHELL"] = self.shell
             p = Popen(self.shell, env=self.env)
             p.wait()
@@ -89,4 +90,5 @@ class Shell(object):
                 encoding='UTF-8',
                 closefd=False
             )
+
             return fd

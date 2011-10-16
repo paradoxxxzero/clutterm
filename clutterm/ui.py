@@ -1,17 +1,14 @@
 from gi.repository import Clutter
 from .shell import Shell
 from .shader import shaders
+from .lex import lex
 import logging
-import re
 log = logging.getLogger('clutterm')
 
 # Define some standard colors to make basic color assigments easier
 colorWhite = Clutter.Color.new(255, 255, 255, 255)
 colorRed = Clutter.Color.new(255, 0, 0, 255)
 colorBlack = Clutter.Color.new(0, 0, 0, 200)
-csi_char_attr = re.compile(r'\x1b\[(\d+);?(\d*)m')
-csi_useless = re.compile(r'\x1b\[\w')
-osc = re.compile(r'\x1b\](\d+);(.*)\x07')
 
 
 class Clutterm(object):
@@ -34,7 +31,7 @@ class Clutterm(object):
         self.linesBoxManager.set_pack_start(False)
 
         # Globals
-        self.string = []
+        self.radix = ''
         self.line = None
         self.stay = False
 
@@ -52,7 +49,6 @@ class Clutterm(object):
 
     def interact(self):
         self.shell = Shell(end_callback=self.destroy)
-        self.cursor = 0
         self.new_line()
 
         def update(read):
@@ -70,57 +66,28 @@ class Clutterm(object):
         # Setup some key bindings on the main stage
         self.mainStage.connect_after("key-press-event", self.onKeyPress)
 
-    def _put(self, char):
-        if self.cursor > len(self.string) - 1:
-            self.string.append(char)
-        else:
-            self.string[self.cursor] = char
-
     def write(self, text):
         if text == '':
             return
-        text = (text
-                .replace('<', '\xf5')
-                .replace('>', '\xf6')
-                .replace('&', '\xf7'))
-        text = re.sub(csi_char_attr, '', text)
-        text = re.sub(csi_useless, '', text)
-        osc_match = osc.search(text)
 
-        if osc_match:
-            # xterm title set osc
-            if int(osc_match.group(1)) in range(3):
-                self.mainStage.set_title(osc_match.group(2))
-
-        text = re.sub(osc, '', text)
-
-        for char in text:
-            if char == '\xf5':
-                char = '&lt;'
-            elif char == '\xf6':
-                char = '&gt;'
-            elif char == '\xf7':
-                char = '&amp;'
-            if char == '\r':
-                self.cursor = 0
-            elif char == '\n':
-                self.set_line(''.join(self.string))
-                self.string = []
+        text = ''.join((self.radix, text))
+        remaining = text
+        self.radix = remaining
+        while remaining:
+            string, remaining = lex(remaining, self.shell.cols, self.set_title)
+            self.set_line(''.join(string))
+            if remaining is not None:
+                self.radix = remaining
                 self.new_line()
-                self.cursor = 0
-            elif char == '\x08':
-                if self.cursor > 0:
-                    self.cursor -= 1
-                self.string.pop()
 
-            else:
-                self._put(char)
-                if not self.stay:
-                    self.cursor += 1
-                else:
-                    self.stay = False
+        # text = re.sub(csi_char_attr, '', text)
 
-        self.set_line(''.join(self.string))
+        # text = re.sub(csi_useless, '', text)
+        # osc_match = osc.search(text)
+        # text = re.sub(osc, '', text)
+
+    def set_title(self, text):
+        self.mainStage.set_title(text)
 
     def set_line(self, text):
         log.debug("D %r" % text)
