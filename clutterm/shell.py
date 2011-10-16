@@ -21,8 +21,7 @@ class Shell(object):
         read = self.reader.read(65535)
         if read:
             log.info('R<%r>' % read)
-        else:
-            log.debug('R')
+
         return read
 
     def write(self, text):

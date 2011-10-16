@@ -1,5 +1,6 @@
 from gi.repository import Clutter
 from .shell import Shell
+from .shader import shaders
 import logging
 log = logging.getLogger('clutterm')
 
@@ -7,7 +8,7 @@ log = logging.getLogger('clutterm')
 # Define some standard colors to make basic color assigments easier
 colorWhite = Clutter.Color.new(255, 255, 255, 255)
 colorRed = Clutter.Color.new(255, 0, 0, 255)
-colorBlack = Clutter.Color.new(0, 0, 0, 150)
+colorBlack = Clutter.Color.new(0, 0, 0, 200)
 
 
 class Clutterm(object):
@@ -17,19 +18,17 @@ class Clutterm(object):
         Build the user interface.
         """
         self.mainStage = Clutter.Stage.new()
-        self.mainStage.set_color(colorBlack)
         self.mainStage.set_title("Clutterminal")
         self.mainStage.set_size(800, 600)
         self.mainStage.set_reactive(True)
         self.mainStage.set_use_alpha(True)
+        self.mainStage.set_opacity(0)
 
         # Create lines layout
         self.linesBoxManager = Clutter.BoxLayout()
         self.linesBoxManager.set_vertical(True)
         self.linesBoxManager.set_homogeneous(False)
         self.linesBoxManager.set_pack_start(False)
-        # self.linesBoxManager.set_use_animations(True)
-        self.linesBoxManager.set_easing_duration(250)
 
         # Globals
         self.string = []
@@ -95,6 +94,7 @@ class Clutterm(object):
         children = Clutter.Container.get_children(self.linesBox)
         if len(children) > self.shell.rows:
             children[0].destroy()
+
         self.line = Clutter.Text.new_full("Mono 10", '', colorWhite)
         self.linesBoxManager.set_alignment(self.line, 0, 0)
         self.linesBox.add_actor(self.line)
@@ -106,16 +106,23 @@ class Clutterm(object):
         """
         Basic key binding handler
         """
-        val = event.key.unicode_value
-        if val == '\x08':
+        uval = event.key.unicode_value
+        kval = event.key.keyval
+        log.debug('u %r v %d' % (uval, kval))
+
+        if uval == '\x08':
             if self.cursor > 0:
                 self.cursor -= 1
                 # Find a better way
                 self.stay = True
-        if val == '\x04':
+        if uval == '\x04':
             self.destroy()
 
-        self.shell.write(val)
+        if uval != '':
+            self.shell.write(uval)
+        else:
+            if kval in shaders:
+                shaders[kval](self.linesBox)
 
         #     # Evaluate the key modifiers
         #     state = event.get_state()
