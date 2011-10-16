@@ -141,4 +141,3 @@ class Clutterm(object):
         #     else:
         #         modMeta = False
 
-        # if (modControl and char == 'd'):

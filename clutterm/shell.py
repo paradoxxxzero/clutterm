@@ -51,8 +51,8 @@ class Shell(object):
             p = Popen((self.shell, "-f"), env=self.env)
             p.wait()
         else:
-            log.debug('pty forked pid: %d fd: %d' % (pid, fd))
             # Parent
+            log.debug('pty forked pid: %d fd: %d' % (pid, fd))
             fcntl.fcntl(fd, fcntl.F_SETFL, os.O_NONBLOCK)
 
             # Set the size of the terminal window:
@@ -79,5 +79,4 @@ class Shell(object):
                 encoding='UTF-8',
                 closefd=False
             )
-            # Tell our IOLoop instance to start watching the child
             return fd
