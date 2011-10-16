@@ -1,6 +1,7 @@
 import io
 import os
 import pty
+import sys
 import fcntl
 import struct
 import termios
@@ -12,13 +13,20 @@ log = logging.getLogger('clutterm')
 class Shell(object):
     shell = os.getenv('SHELL')
 
-    def __init__(self, rows=40, cols=80):
+    def __init__(self, rows=40, cols=100, end_callback=None):
         self.rows = rows
         self.cols = cols
+        self.end_callback = end_callback
         self.fork()
 
     def read(self):
-        read = self.reader.read(65535)
+        try:
+            read = self.reader.read(65535)
+        except IOError as e:
+            log.info('Got an io error %r, must be the end, quitting' % e)
+            if self.end_callback:
+                self.end_callback()
+            sys.exit(0)
         if read:
             log.info('R<%r>' % read)
 
@@ -47,9 +55,11 @@ class Shell(object):
             self.env = {}
             self.env["COLUMNS"] = str(self.cols)
             self.env["LINES"] = str(self.rows)
-            self.env["TERM"] = "clutterm"
-            p = Popen((self.shell, "-f"), env=self.env)
+            self.env["TERM"] = "xterm"
+            self.env["SHELL"] = self.shell
+            p = Popen(self.shell, env=self.env)
             p.wait()
+            sys.exit(0)
         else:
             # Parent
             log.debug('pty forked pid: %d fd: %d' % (pid, fd))
