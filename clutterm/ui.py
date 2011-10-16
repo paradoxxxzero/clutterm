@@ -1,6 +1,7 @@
 from gi.repository import Clutter
 from .shell import Shell
 from .shader import shaders
+from .bindings import special_keys
 from .lex import lex
 import logging
 log = logging.getLogger('clutterm')
@@ -113,10 +114,19 @@ class Clutterm(object):
         """
         uval = event.key.unicode_value
         kval = event.key.keyval
+
         log.debug('u %r v %d' % (uval, kval))
 
         if uval != '':
             self.shell.write(uval)
-        else:
-            if kval in shaders:
-                shaders[kval](self.linesBox)
+            return
+
+        if kval in special_keys:
+            self.shell.write(special_keys[kval])
+            return
+
+        if kval in shaders:
+            shaders[kval](self.linesBox)
+            return
+
+        log.warn('Unknown keyval %d' % kval)

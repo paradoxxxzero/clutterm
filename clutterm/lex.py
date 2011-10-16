@@ -107,7 +107,6 @@ def lex(text, length, set_title):
             return string, text[i:]
         elif char == '\x08':
             cursor -= 1
-            string[cursor] = ' '
             continue
         if cursor > len(string) - 1:
             string.append(char)
