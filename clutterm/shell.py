@@ -6,8 +6,23 @@ import fcntl
 import struct
 import termios
 import logging
+import select
+from gi.repository import GObject
 from subprocess import Popen
+from threading import Thread
 log = logging.getLogger('clutterm')
+
+
+class ReaderAsync(Thread):
+    def __init__(self, shell, callback):
+        self.shell = shell
+        self.callback = callback
+        Thread.__init__(self)
+
+    def run(self):
+        while True:
+            select.select([self.shell.fd], [], [self.shell.fd])
+            GObject.idle_add(self.callback, self.shell.read())
 
 
 class Shell(object):
@@ -21,7 +36,7 @@ class Shell(object):
 
     def read(self):
         try:
-            read = self.reader.read(65535)
+            read = self.reader.read(1024)
         except IOError as e:
             log.info('Got an io error %r, must be the end, quitting' % e)
             if self.end_callback:

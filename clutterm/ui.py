@@ -1,8 +1,9 @@
 from gi.repository import Clutter
-from .shell import Shell
+from .shell import Shell, ReaderAsync
 from .shader import shaders
 from .bindings import special_keys
 from .lex import lex
+
 import logging
 log = logging.getLogger('clutterm')
 
@@ -52,20 +53,10 @@ class Clutterm(object):
         self.shell = Shell(end_callback=self.destroy)
         self.radix = [' ' for i in range(self.shell.cols)]
         self.new_line()
+        self.thread = ReaderAsync(self.shell, self.write)
+        self.thread.start()
 
-        def update(read):
-            self.write(self.shell.read())
-
-        # This is so bad...
-        # Really need to find a way to put a thread or an asyncore
-        # Without clutter threading problems
-        # Polling for now
-        self.reader = Clutter.Timeline.new(10)
-        self.reader.set_loop(True)
-        self.reader.connect('completed', update)
-        self.reader.start()
-
-        # Setup some key bindings on the main stage
+        # Setup key bindings on the terminal
         self.mainStage.connect_after("key-press-event", self.onKeyPress)
 
     def write(self, text):

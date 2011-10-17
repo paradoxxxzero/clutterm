@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from gi.repository import Clutter, ClutterX11
+from gi.repository import Clutter, ClutterX11, GObject
 from clutterm.ui import Clutterm
 import logging
 import sys
@@ -17,6 +17,8 @@ log.setLevel(logging.DEBUG if 'debug' in sys.argv
              else logging.WARN)
 
 ClutterX11.set_use_argb_visual(True)
+GObject.threads_init()
+Clutter.threads_init()
 Clutter.init(sys.argv)
 
 app = Clutterm()
