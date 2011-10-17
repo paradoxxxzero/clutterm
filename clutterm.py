@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 from gi.repository import Clutter, ClutterX11
 from clutterm.ui import Clutterm
-from log_colorizer import make_colored_stream_handler
 import logging
 import sys
 log = logging.getLogger('clutterm')
-log.addHandler(make_colored_stream_handler())
+handler = None
+try:
+    from log_colorizer import make_colored_stream_handler
+    handler = make_colored_stream_handler()
+except ImportError:
+    handler = logging.StreamHandler()
+
+log.addHandler(handler)
 log.setLevel(logging.DEBUG if 'debug' in sys.argv
              else logging.INFO if 'info' in sys.argv
              else logging.WARN)
