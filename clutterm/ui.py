@@ -21,8 +21,8 @@ class Clutterm(object):
         """
         self.mainStage = Clutter.Stage.new()
         self.mainStage.set_title("Clutterminal")
-        self.mainStage.set_size(800, 600)
         self.mainStage.set_reactive(True)
+        self.mainStage.set_user_resizable(True)
         self.mainStage.set_use_alpha(True)
         self.mainStage.set_opacity(0)
 
@@ -43,8 +43,14 @@ class Clutterm(object):
         self.mainStage.add_actor(self.linesBox)
 
         # Make the main window fill the entire stage
-        mainGeometry = self.mainStage.get_geometry()
-        self.linesBox.set_geometry(mainGeometry)
+        def resize(w, h):
+            # TODO Recompute rows and cols
+            mainGeometry = self.mainStage.get_geometry()
+            self.linesBox.set_geometry(mainGeometry)
+
+        self.mainStage.connect_after("notify::width", resize)
+        self.mainStage.connect_after("notify::height", resize)
+        self.mainStage.set_size(800, 600)
 
         # Present the main stage (and make sure everything is shown)
         self.mainStage.show_all()
@@ -91,6 +97,9 @@ class Clutterm(object):
         self.line = Clutter.Text()
         self.line.set_font_name("Mono 10")
         self.line.set_color(colorWhite)
+        # self.line.set_editable(True)
+        # self.line.set_selectable(True)
+        # self.line.set_cursor_visible(True)
         self.linesBoxManager.set_alignment(self.line, 0, 0)
         self.linesBox.add_actor(self.line)
 
