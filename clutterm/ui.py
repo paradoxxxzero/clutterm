@@ -2,7 +2,7 @@ from gi.repository import Clutter
 from .shell import Shell, ReaderAsync
 from .shader import shaders
 from .bindings import special_keys
-from .lex import lex
+from .lex import Lexer
 
 import logging
 log = logging.getLogger('clutterm')
@@ -71,9 +71,9 @@ class Clutterm(object):
         remaining = text
 
         while remaining:
-            string, remaining, self.cursor = lex(
+            string, remaining, self.cursor = Lexer(
                 remaining, self.cursor, self.radix,
-                self.set_title)
+                self.set_title).lex()
             self.set_line(''.join(string))
             if remaining is not None:
                 self.radix = [' ' for i in range(self.shell.cols)]
