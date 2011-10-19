@@ -24,13 +24,15 @@ class Clutterm(object):
         self.mainStage.set_reactive(True)
         self.mainStage.set_user_resizable(True)
         self.mainStage.set_use_alpha(True)
-        self.mainStage.set_opacity(0)
+        self.mainStage.set_color(colorBlack)
 
         # Create lines layout
         self.linesBoxManager = Clutter.BoxLayout()
         self.linesBoxManager.set_vertical(True)
-        self.linesBoxManager.set_homogeneous(False)
+        self.linesBoxManager.set_homogeneous(True)
         self.linesBoxManager.set_pack_start(False)
+        # self.linesBoxManager.set_use_animations(True)
+        # self.linesBoxManager.set_easing_duration(250)
 
         # Globals
         self.line = None
@@ -39,7 +41,6 @@ class Clutterm(object):
 
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
-        self.linesBox.set_color(colorBlack)
         self.mainStage.add_actor(self.linesBox)
 
         # Make the main window fill the entire stage
@@ -86,10 +87,6 @@ class Clutterm(object):
         self.mainStage.set_title(text)
 
     def bell(self):
-        center = Clutter.Vertex()
-        center.x = self.linesBox.get_width() / 2
-        center.y = self.linesBox.get_height() / 2
-        center.z = 0
         self.linesBox.animatev(
             Clutter.AnimationMode.EASE_OUT_BACK, 100,
             (

@@ -82,6 +82,15 @@ class Lexer(object):
             if self.cursor < 0:
                 log.warn('Self.Cursor too far at %d' % self.cursor)
                 self.cursor = 0
+        elif type == 'K':
+            if m == 1:
+                r = range(0, self.cursor)
+            elif m == 2:
+                r = range(0, len(self.string) - 1)
+            else:
+                r = range(self.cursor, len(self.string) - 1)
+                for i in r:
+                    self.string[i] = ' '
         else:
             log.warn('Untreated csi %r' % csi.group(0))
         self.position += len(csi.group(0)) - 1
