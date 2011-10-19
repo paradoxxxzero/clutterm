@@ -73,7 +73,7 @@ class Clutterm(object):
         while remaining:
             string, remaining, self.cursor = Lexer(
                 remaining, self.cursor, self.radix,
-                self.set_title).lex()
+                self.set_title, self.bell).lex()
             self.set_line(''.join(string))
             if remaining is not None:
                 self.radix = [' ' for i in range(self.shell.cols)]
@@ -84,6 +84,30 @@ class Clutterm(object):
 
     def set_title(self, text):
         self.mainStage.set_title(text)
+
+    def bell(self):
+        center = Clutter.Vertex()
+        center.x = self.linesBox.get_width() / 2
+        center.y = self.linesBox.get_height() / 2
+        center.z = 0
+        self.linesBox.animatev(
+            Clutter.AnimationMode.EASE_OUT_BACK, 100,
+            (
+                "fixed::scale-x",
+                "fixed::scale-y",
+                "fixed::scale-center-x",
+                "fixed::scale-center-y",
+                "scale-x",
+                "scale-y"
+            ), (
+                1.2,
+                1.2,
+                self.linesBox.get_width() / 2,
+                self.linesBox.get_height() / 2,
+                1,
+                1
+            )
+        )
 
     def set_line(self, text):
         log.debug("D %r" % text)

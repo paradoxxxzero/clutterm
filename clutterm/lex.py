@@ -40,20 +40,23 @@ class Lexer(object):
         '>': '&gt;',
         '&': '&amp;'
     }
-    csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?([a-zA-z@])')
+    csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?([a-zA-Z@])')
     osc_re = re.compile(r'\x1b\](\d+);(.*)\x07')
 
-    def __init__(self, text, cursor, string, set_title):
+    def __init__(self, text, cursor, string, set_title, bell):
         self.text = text
         self.cursor = cursor
         self.string = string
         self.set_title = set_title
+        self.bell = bell
         self.position = 0
 
     def csi(self, csi):
         type = csi.group(5)
+        opt = csi.group(1)
         m = int(csi.group(2) or -1)
         n = int(csi.group(4) or -1)
+        log.debug('csi %r %s %d %d' % (opt, type, m, n))
         if type == 'm':
             if n < 30 or n in (39, 49):
                 style = '</span><span>'
@@ -70,12 +73,12 @@ class Lexer(object):
                 log.warn('cursor problem for style %s %d' %
                          (style, self.cursor))
         elif type == 'C':
-            self.cursor += n
+            self.cursor += m
             if self.cursor > len(self.string):
                 log.warn('Self.Cursor too far at %d' % self.cursor)
                 self.cursor = len(self.string) - 1
         elif type == 'D':
-            self.cursor -= n
+            self.cursor -= m
             if self.cursor < 0:
                 log.warn('Self.Cursor too far at %d' % self.cursor)
                 self.cursor = 0
@@ -112,8 +115,6 @@ class Lexer(object):
                 self.osc(osc)
                 continue
             elif char == '\x1b':
-                import pdb
-                pdb.set_trace()
                 log.error('Unmatched escape %d %r' % (
                     self.position, self.text))
                 continue
@@ -128,6 +129,9 @@ class Lexer(object):
 
             elif char == '\x08':
                 self.cursor -= 1
+                continue
+            elif char == '\x07':
+                self.bell()
                 continue
 
             if self.cursor > len(self.string) - 1:
