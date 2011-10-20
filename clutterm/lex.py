@@ -45,6 +45,11 @@ class Matrix(object):
             return ''.join(self.matrix[y])
         return ''
 
+    def shift(self):
+        self.matrix.pop(0)
+        self.matrix.append([' ' for i in range(self.cols)])
+
+
 log = logging.getLogger('clutterm')
 color = (
     '#262524',
@@ -89,7 +94,7 @@ class Lexer(object):
         self.set_title = set_title
         self.bell = bell
         self.text_position = 0
-        self.damaged_lines = set()
+        self.damaged = set()
 
     def csi(self, csi):
         type = csi.group(5)
@@ -185,7 +190,12 @@ class Lexer(object):
 
             elif char == '\n':
                 self.cursor.x = 0
-                self.cursor.y += 1
+                if self.cursor.y == self.rows - 1:
+                    self.matrix.shift()
+                    self.damaged = set(range(self.rows))
+                else:
+                    self.cursor.y += 1
+                continue
 
             elif char == '\x08':
                 self.cursor.x -= 1
@@ -194,6 +204,6 @@ class Lexer(object):
                 self.bell()
                 continue
 
-            self.damaged_lines.add(self.cursor.y)
+            self.damaged.add(self.cursor.y)
             self.matrix.putc(self.cursor, char)
             self.cursor.x += 1

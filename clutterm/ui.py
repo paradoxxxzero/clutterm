@@ -29,7 +29,7 @@ class Clutterm(object):
         # Create lines layout
         self.linesBoxManager = Clutter.BoxLayout()
         self.linesBoxManager.set_vertical(True)
-        self.linesBoxManager.set_homogeneous(True)
+        self.linesBoxManager.set_homogeneous(False)
         self.linesBoxManager.set_pack_start(False)
         # self.linesBoxManager.set_use_animations(True)
         # self.linesBoxManager.set_easing_duration(250)
@@ -38,17 +38,14 @@ class Clutterm(object):
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
         self.mainStage.add_actor(self.linesBox)
 
-        # Make the main window fill the entire stage
         def resize(w, h):
             # TODO Recompute rows and cols
-            mainGeometry = self.mainStage.get_geometry()
-            self.linesBox.set_geometry(mainGeometry)
+            self.linesBox.set_geometry(self.mainStage.get_geometry())
 
         self.shell = Shell(end_callback=self.destroy)
         self.lexer = Lexer(self.shell.cols, self.shell.rows,
                            self.set_title, self.bell)
-        self.lines = [self.new_line()
-                      for i in range(self.shell.rows)]
+
         self.thread = ReaderAsync(self.shell, self.write)
         self.thread.start()
 
@@ -62,14 +59,17 @@ class Clutterm(object):
         # Present the main stage (and make sure everything is shown)
         self.mainStage.show_all()
 
+        self.lines = [self.new_line()
+                      for i in range(self.shell.rows)]
+
     def write(self, text):
         if text == '':
             return
 
         self.lexer.lex(text)
-        for line in self.lexer.damaged_lines:
+        for line in self.lexer.damaged:
             self.set_line(line, self.lexer.matrix.get_line(line))
-        self.lexer.damaged_lines = set()
+        self.lexer.damaged = set()
 
     def set_title(self, text):
         self.mainStage.set_title(text)
@@ -95,7 +95,7 @@ class Clutterm(object):
         )
 
     def set_line(self, line, text):
-        log.debug("D %r" % text)
+        log.debug("D%d %r" % (line, text))
         self.lines[line].set_markup('<span>%s</span>' % text)
 
     def new_line(self):
@@ -106,9 +106,11 @@ class Clutterm(object):
         line = Clutter.Text()
         line.set_font_name("Mono 10")
         line.set_color(colorWhite)
+        line.set_cursor_color(colorRed)
+        line.set_selected_text_color(colorRed)
         # self.line.set_editable(True)
-        # self.line.set_selectable(True)
-        # self.line.set_cursor_visible(True)
+        line.set_selectable(True)
+        line.set_cursor_visible(True)
         self.linesBoxManager.set_alignment(line, 0, 0)
         self.linesBox.add_actor(line)
         return line
