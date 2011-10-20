@@ -22,6 +22,5 @@ Clutter.threads_init()
 Clutter.init(sys.argv)
 
 app = Clutterm()
-app.interact()
 
 Clutter.main()

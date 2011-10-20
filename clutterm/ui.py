@@ -24,22 +24,18 @@ class Clutterm(object):
         self.mainStage.set_reactive(True)
         self.mainStage.set_user_resizable(True)
         self.mainStage.set_use_alpha(True)
-        self.mainStage.set_opacity(0)
+        self.mainStage.set_color(colorBlack)
 
         # Create lines layout
         self.linesBoxManager = Clutter.BoxLayout()
         self.linesBoxManager.set_vertical(True)
-        self.linesBoxManager.set_homogeneous(False)
+        self.linesBoxManager.set_homogeneous(True)
         self.linesBoxManager.set_pack_start(False)
-
-        # Globals
-        self.line = None
-        self.stay = False
-        self.cursor = 0
+        # self.linesBoxManager.set_use_animations(True)
+        # self.linesBoxManager.set_easing_duration(250)
 
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
-        self.linesBox.set_color(colorBlack)
         self.mainStage.add_actor(self.linesBox)
 
         # Make the main window fill the entire stage
@@ -48,6 +44,17 @@ class Clutterm(object):
             mainGeometry = self.mainStage.get_geometry()
             self.linesBox.set_geometry(mainGeometry)
 
+        self.shell = Shell(end_callback=self.destroy)
+        self.lexer = Lexer(self.shell.cols, self.shell.rows,
+                           self.set_title, self.bell)
+        self.lines = [self.new_line()
+                      for i in range(self.shell.rows)]
+        self.thread = ReaderAsync(self.shell, self.write)
+        self.thread.start()
+
+        # Setup key bindings on the terminal
+        self.mainStage.connect_after("key-press-event", self.onKeyPress)
+
         self.mainStage.connect_after("notify::width", resize)
         self.mainStage.connect_after("notify::height", resize)
         self.mainStage.set_size(800, 600)
@@ -55,53 +62,56 @@ class Clutterm(object):
         # Present the main stage (and make sure everything is shown)
         self.mainStage.show_all()
 
-    def interact(self):
-        self.shell = Shell(end_callback=self.destroy)
-        self.radix = [' ' for i in range(self.shell.cols)]
-        self.new_line()
-        self.thread = ReaderAsync(self.shell, self.write)
-        self.thread.start()
-
-        # Setup key bindings on the terminal
-        self.mainStage.connect_after("key-press-event", self.onKeyPress)
-
     def write(self, text):
         if text == '':
             return
-        remaining = text
 
-        while remaining:
-            string, remaining, self.cursor = Lexer(
-                remaining, self.cursor, self.radix,
-                self.set_title).lex()
-            self.set_line(''.join(string))
-            if remaining is not None:
-                self.radix = [' ' for i in range(self.shell.cols)]
-                string = []
-                self.new_line()
-
-        self.radix = string
+        self.lexer.lex(text)
+        for line in self.lexer.damaged_lines:
+            self.set_line(line, self.lexer.matrix.get_line(line))
+        self.lexer.damaged_lines = set()
 
     def set_title(self, text):
         self.mainStage.set_title(text)
 
-    def set_line(self, text):
+    def bell(self):
+        self.linesBox.animatev(
+            Clutter.AnimationMode.EASE_OUT_BACK, 100,
+            (
+                "fixed::scale-x",
+                "fixed::scale-y",
+                "fixed::scale-center-x",
+                "fixed::scale-center-y",
+                "scale-x",
+                "scale-y"
+            ), (
+                1.2,
+                1.2,
+                self.linesBox.get_width() / 2,
+                self.linesBox.get_height() / 2,
+                1,
+                1
+            )
+        )
+
+    def set_line(self, line, text):
         log.debug("D %r" % text)
-        self.line.set_markup('<span>%s</span>' % text)
+        self.lines[line].set_markup('<span>%s</span>' % text)
 
     def new_line(self):
-        children = Clutter.Container.get_children(self.linesBox)
-        if len(children) > self.shell.rows:
-            children[0].destroy()
+        # children = Clutter.Container.get_children(self.linesBox)
+        # if len(children) > self.shell.rows:
+            # children[0].destroy()
 
-        self.line = Clutter.Text()
-        self.line.set_font_name("Mono 10")
-        self.line.set_color(colorWhite)
+        line = Clutter.Text()
+        line.set_font_name("Mono 10")
+        line.set_color(colorWhite)
         # self.line.set_editable(True)
         # self.line.set_selectable(True)
         # self.line.set_cursor_visible(True)
-        self.linesBoxManager.set_alignment(self.line, 0, 0)
-        self.linesBox.add_actor(self.line)
+        self.linesBoxManager.set_alignment(line, 0, 0)
+        self.linesBox.add_actor(line)
+        return line
 
     def destroy(self):
         Clutter.main_quit()
@@ -126,5 +136,9 @@ class Clutterm(object):
         if kval in shaders:
             shaders[kval](self.linesBox)
             return
+
+        if kval == 65299:
+            import pdb
+            pdb.pm()
 
         log.warn('Unknown keyval %d' % kval)
