@@ -1,5 +1,50 @@
+from collections import namedtuple
 import logging
 import re
+
+
+class Cursor(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class Matrix(object):
+    def __init__(self, cols, rows):
+        self.cols = cols
+        self.rows = rows
+
+        self.matrix = [
+            [' ' for i in range(self.cols)]
+            for i in range(self.rows)
+        ]
+
+    def putc(self, cursor, char):
+        return self.put(cursor.x, cursor.y, char)
+
+    def put(self, x, y, char):
+        if (0 <= y < self.rows and
+            0 <= x < self.cols):
+            self.matrix[y][x] = char
+        else:
+            log.info('Put Out %d %d' % (x, y))
+
+    def getc(self, cursor):
+        return self.get(cursor.x, cursor.y)
+
+    def get(self, x, y):
+        if (0 <= y < self.rows and
+            0 <= x < self.cols):
+            return self.matrix[y][x]
+        else:
+            log.info('Get Out %d %d' % (x, y))
+            return ' '
+
+    def get_line(self, y):
+        if 0 <= y < self.rows:
+            return ''.join(self.matrix[y])
+        return ''
+
 log = logging.getLogger('clutterm')
 color = {
     30: '#262524',
@@ -43,13 +88,15 @@ class Lexer(object):
     csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?([a-zA-Z@])')
     osc_re = re.compile(r'\x1b\](\d+);(.*)\x07')
 
-    def __init__(self, text, cursor, string, set_title, bell):
-        self.text = text
-        self.cursor = cursor
-        self.string = string
+    def __init__(self, cols, rows, set_title, bell):
+        self.cursor = Cursor(0, 0)
+        self.cols = cols
+        self.rows = rows
+        self.matrix = Matrix(cols, rows)
         self.set_title = set_title
         self.bell = bell
-        self.position = 0
+        self.text_position = 0
+        self.damaged_lines = set()
 
     def csi(self, csi):
         type = csi.group(5)
@@ -66,34 +113,35 @@ class Lexer(object):
             else:
                 style = ('</span><span foreground="%s">' %
                         color[n])
-            # FIXME
-            if self.cursor > 0 and self.cursor <= len(self.string):
-                self.string[self.cursor - 1] += style
-            else:
-                log.warn('cursor problem for style %s %d' %
-                         (style, self.cursor))
+            # FIXME!!!!
+            self.matrix.put(
+                self.cursor.y, self.cursor.x - 1,
+                self.matrix.get(
+                    self.cursor.y, self.cursor.x - 1)
+                + style)
+
         elif type == 'C':
-            self.cursor += m
-            if self.cursor > len(self.string):
-                log.warn('Self.Cursor too far at %d' % self.cursor)
-                self.cursor = len(self.string) - 1
+            self.cursor.x += m
+            if self.cursor.x > self.cols:
+                log.warn('Self.Cursor.X too far at %d' % self.cursor.x)
+                self.cursor.x = self.cols - 1
         elif type == 'D':
-            self.cursor -= m
-            if self.cursor < 0:
-                log.warn('Self.Cursor too far at %d' % self.cursor)
-                self.cursor = 0
+            self.cursor.x -= m
+            if self.cursor.x < 0:
+                log.warn('Self.Cursor.X too far at %d' % self.cursor.x)
+                self.cursor.x = 0
         elif type == 'K':
             if m == 1:
-                r = range(0, self.cursor)
+                r = range(0, self.cursor.x)
             elif m == 2:
-                r = range(0, len(self.string) - 1)
+                r = range(0, self.cols - 1)
             else:
-                r = range(self.cursor, len(self.string) - 1)
+                r = range(self.cursor.x, self.cols - 1)
                 for i in r:
-                    self.string[i] = ' '
+                    self.matrix.put(self.cursor.y, i, ' ')
         else:
             log.warn('Untreated csi %r' % csi.group(0))
-        self.position += len(csi.group(0)) - 1
+        self.text_position += len(csi.group(0)) - 1
 
     def osc(self, osc):
         m = int(osc.group(1) or -1)
@@ -102,16 +150,16 @@ class Lexer(object):
             self.set_title(txt)
         else:
             log.warn('Untreated osc %r' % osc.group(0))
-        self.position += len(osc.group(0)) - 1
+        self.text_position += len(osc.group(0)) - 1
 
-    def lex(self):
+    def lex(self, text):
+        self.text_position = 0
+        while self.text_position != len(text):
+            char = text[self.text_position]
+            csi = self.csi_re.match(text[self.text_position:])
+            osc = self.osc_re.match(text[self.text_position:])
 
-        while self.position != len(self.text):
-            char = self.text[self.position]
-            csi = self.csi_re.match(self.text[self.position:])
-            osc = self.osc_re.match(self.text[self.position:])
-
-            self.position += 1
+            self.text_position += 1
             # Pango escaping
             if char in self.escape_chars:
                 char = self.escape_chars[char]
@@ -125,29 +173,24 @@ class Lexer(object):
                 continue
             elif char == '\x1b':
                 log.error('Unmatched escape %d %r' % (
-                    self.position, self.text))
+                    self.text_position, text))
                 continue
 
             elif char == '\r':
-                self.cursor = 0
+                self.cursor.x = 0
                 continue
 
             elif char == '\n':
-                self.cursor = 0
-                return self.string, self.text[self.position:], self.cursor
+                self.cursor.x = 0
+                self.cursor.y += 1
 
             elif char == '\x08':
-                self.cursor -= 1
+                self.cursor.x -= 1
                 continue
             elif char == '\x07':
                 self.bell()
                 continue
 
-            if self.cursor > len(self.string) - 1:
-                self.string.append(char)
-            else:
-                self.string[self.cursor] = char
-
-            self.cursor += 1
-
-        return self.string, None, self.cursor
+            self.damaged_lines.add(self.cursor.y)
+            self.matrix.putc(self.cursor, char)
+            self.cursor.x += 1
