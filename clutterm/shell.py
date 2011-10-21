@@ -52,6 +52,12 @@ class Shell(object):
         self.writer.write(text)
         self.writer.flush()
 
+    def resize(self, cols, rows):
+        self.cols = cols
+        self.rows = rows
+        s = struct.pack("HHHH", self.rows, self.cols, 0, 0)
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, s)
+
     def fork(self):
         pid, fd = pty.fork()
         if pid == 0:
@@ -68,8 +74,6 @@ class Shell(object):
                 except OSError:
                     pass
             self.env = {}
-            self.env["COLUMNS"] = str(self.cols)
-            self.env["LINES"] = str(self.rows)
             self.env["TERM"] = "xterm"
             # self.env["COLORTERM"] = "clutterm"
             self.env["SHELL"] = self.shell

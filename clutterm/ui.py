@@ -19,6 +19,7 @@ class Clutterm(object):
         """
         Build the user interface.
         """
+        self.font = "Mono 10"
         self.mainStage = Clutter.Stage.new()
         self.mainStage.set_title("Clutterminal")
         self.mainStage.set_reactive(True)
@@ -37,14 +38,44 @@ class Clutterm(object):
         # Create the lines box
         self.linesBox = Clutter.Box.new(self.linesBoxManager)
         self.mainStage.add_actor(self.linesBox)
-
-        def resize(w, h):
-            # TODO Recompute rows and cols
-            self.linesBox.set_geometry(self.mainStage.get_geometry())
+        dummy_text = Clutter.Text()
+        dummy_text.set_font_name(self.font)
+        dummy_text.set_text("m")
+        self.char_width = dummy_text.get_width()
+        self.char_height = dummy_text.get_height()
 
         self.shell = Shell(end_callback=self.destroy)
         self.lexer = Lexer(self.shell.cols, self.shell.rows,
                            self.set_title, self.bell)
+
+        def resize(a0, a1):
+            w = self.mainStage.get_width()
+            h = self.mainStage.get_height()
+            cols = int(w / self.char_width)
+            rows = int(h / self.char_height)
+            log.info('resize %s %s %s %s' % (w, h, cols, rows))
+            self.shell.resize(cols, rows)
+            self.lexer.resize(cols, rows)
+            self.linesBox.set_geometry(self.mainStage.get_geometry())
+            if rows > len(self.lines):
+                for i in range(rows - len(self.lines)):
+                    self.lines.append(create_line())
+
+        def create_line():
+            line = Clutter.Text()
+            line.set_color(colorWhite)
+            line.set_cursor_color(colorRed)
+            line.set_selected_text_color(colorRed)
+            line.set_font_name(self.font)
+            # self.line.set_editable(True)
+            line.set_selectable(True)
+            line.set_cursor_visible(True)
+            self.linesBoxManager.set_alignment(line, 0, 0)
+            self.linesBox.add_actor(line)
+            return line
+
+        self.lines = [create_line()
+                      for i in range(self.shell.rows)]
 
         self.thread = ReaderAsync(self.shell, self.write)
         self.thread.start()
@@ -54,13 +85,12 @@ class Clutterm(object):
 
         self.mainStage.connect_after("notify::width", resize)
         self.mainStage.connect_after("notify::height", resize)
-        self.mainStage.set_size(800, 600)
+        self.mainStage.set_size(
+            self.shell.cols * self.char_width,
+            self.shell.rows * self.char_height)
 
         # Present the main stage (and make sure everything is shown)
         self.mainStage.show_all()
-
-        self.lines = [self.new_line()
-                      for i in range(self.shell.rows)]
 
     def write(self, text):
         if text == '':
@@ -97,23 +127,6 @@ class Clutterm(object):
     def set_line(self, line, text):
         log.debug("D%d %r" % (line, text))
         self.lines[line].set_markup('<span>%s</span>' % text)
-
-    def new_line(self):
-        # children = Clutter.Container.get_children(self.linesBox)
-        # if len(children) > self.shell.rows:
-            # children[0].destroy()
-
-        line = Clutter.Text()
-        line.set_font_name("Mono 10")
-        line.set_color(colorWhite)
-        line.set_cursor_color(colorRed)
-        line.set_selected_text_color(colorRed)
-        # self.line.set_editable(True)
-        line.set_selectable(True)
-        line.set_cursor_visible(True)
-        self.linesBoxManager.set_alignment(line, 0, 0)
-        self.linesBox.add_actor(line)
-        return line
 
     def destroy(self):
         Clutter.main_quit()

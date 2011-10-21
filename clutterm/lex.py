@@ -52,6 +52,24 @@ class Matrix(object):
     def clear(self, y):
         self.matrix[y] = [' ' for i in range(self.cols)]
 
+    def resize(self, cols, rows):
+        if rows > self.rows:
+            for i in range(rows - self.rows):
+                self.matrix.append([' ' for i in range(self.cols)])
+        elif rows < self.rows:
+            for i in range(self.rows - rows):
+                self.matrix.pop(0)
+
+        if cols > self.cols:
+            for i in range(self.rows):
+                self.matrix[i] = self.matrix[i] + [
+                    ' ' for i in range(self.cols)]
+        elif cols < self.cols:
+            for i in range(self.rows):
+                self.matrix[i] = self.matrix[i][:(self.cols - cols)]
+        self.cols = cols
+        self.rows = rows
+
 
 log = logging.getLogger('clutterm')
 color = (
@@ -99,6 +117,15 @@ class Lexer(object):
         self.bell = bell
         self.text_position = 0
         self.damaged = set()
+
+    def resize(self, cols, rows):
+        self.cols = cols
+        self.rows = rows
+        self.matrix.resize(cols, rows)
+        if self.cursor.x > cols:
+            self.cursor.x = cols - 1
+        if self.cursor.y > rows:
+            self.cursor.y = rows - 1
 
     def lex(self, text):
         self.text_position = 0
