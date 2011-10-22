@@ -48,6 +48,14 @@ class Clutterm(object):
         self.lexer = Lexer(self.shell.cols, self.shell.rows,
                            self.set_title, self.bell)
 
+        self.cursor = Clutter.Rectangle()
+        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 100))
+        self.cursor.set_x(self.char_width * self.lexer.cursor.x)
+        self.cursor.set_y(self.char_height * self.lexer.cursor.y)
+        self.cursor.set_width(self.char_width)
+        self.cursor.set_height(self.char_height)
+        self.mainStage.add_actor(self.cursor)
+
         def resize(a0, a1):
             w = self.mainStage.get_width()
             h = self.mainStage.get_height()
@@ -100,6 +108,16 @@ class Clutterm(object):
         for line in self.lexer.damaged:
             self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
+        self.cursor.animatev(
+            Clutter.AnimationMode.EASE_OUT_BACK, 100,
+            (
+                "x",
+                "y"
+            ), (
+                self.char_width * self.lexer.cursor.x,
+                self.char_height * self.lexer.cursor.y
+            )
+        )
 
     def set_title(self, text):
         self.mainStage.set_title(text)
