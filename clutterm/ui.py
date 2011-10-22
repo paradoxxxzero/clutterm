@@ -98,7 +98,7 @@ class Clutterm(object):
 
         self.lexer.lex(text)
         for line in self.lexer.damaged:
-            self.set_line(line, self.lexer.matrix.get_line(line))
+            self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
 
     def set_title(self, text):
@@ -126,7 +126,7 @@ class Clutterm(object):
 
     def set_line(self, line, text):
         log.debug("D%d %r" % (line, text))
-        self.lines[line].set_markup('<span>%s</span>' % text)
+        self.lines[line].set_markup(text)
 
     def destroy(self):
         Clutter.main_quit()
