@@ -1,4 +1,3 @@
-from collections import namedtuple
 import logging
 import re
 
@@ -10,13 +9,13 @@ class Cursor(object):
 
 
 class Matrix(object):
-    def __init__(self, cols, rows):
+    def __init__(self, cols, rows, void=' '):
         self.cols = cols
         self.rows = rows
+        self.void = void
 
         self.matrix = [
-            [' ' for i in range(self.cols)]
-            for i in range(self.rows)
+            self.create_line() for i in range(self.rows)
         ]
 
     def putc(self, cursor, char):
@@ -38,7 +37,7 @@ class Matrix(object):
             return self.matrix[y][x]
         else:
             log.debug('Get Out %d %d' % (x, y))
-            return ' '
+            return self.void
 
     def get_line(self, y):
         if 0 <= y < self.rows:
@@ -47,23 +46,31 @@ class Matrix(object):
 
     def shift(self):
         self.matrix.pop(0)
-        self.matrix.append([' ' for i in range(self.cols)])
+        self.matrix.append(self.create_line())
 
-    def clear(self, y):
-        self.matrix[y] = [' ' for i in range(self.cols)]
+    def clear_line(self, y):
+        self.matrix[y] = self.create_line()
+
+    def create_line(self, size=None):
+        size = size or self.cols
+        return [self.void for i in range(size)]
+
+    def erase_range(self, rng, y):
+        for i in rng:
+            self.matrix[y][i] = self.void
 
     def resize(self, cols, rows):
         if rows > self.rows:
             for i in range(rows - self.rows):
-                self.matrix.append([' ' for i in range(self.cols)])
+                self.matrix.append(self.create_line())
         elif rows < self.rows:
             for i in range(self.rows - rows):
                 self.matrix.pop(0)
 
         if cols > self.cols:
             for i in range(self.rows):
-                self.matrix[i] = self.matrix[i] + [
-                    ' ' for i in range(self.cols)]
+                self.matrix[i] = self.matrix[i] + self.create_line(
+                    cols - self.cols)
         elif cols < self.cols:
             for i in range(self.rows):
                 self.matrix[i] = self.matrix[i][:(self.cols - cols)]
@@ -298,7 +305,7 @@ class Lexer(object):
             r = range(self.cursor.y, self.rows)
 
         for i in r:
-            self.matrix.clear(i)
+            self.matrix.clear_line(i)
             self.damaged.add(i)
 
     def csi_K(self, m, n):
@@ -309,8 +316,7 @@ class Lexer(object):
         else:
             r = range(self.cursor.x, self.cols - 1)
 
-        for i in r:
-            self.matrix.put(i, self.cursor.y, ' ')
+        self.matrix.erase_range(r, self.cursor.y)
 
     def csi_d(self, m, n):
         m -= 1
