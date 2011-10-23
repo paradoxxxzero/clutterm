@@ -408,3 +408,10 @@ class Lexer(object):
         line[self.cols - 1] += make_close_tag(bold)
         self.end_styles[y] = Style(fg, bg, bold, reverse)
         return ''.join(line)
+
+    @property
+    def current_fg(self):
+        style = self.styles.getc(self.cursor)
+        if style:
+            return style.fg or "#ffffff"
+        return "#ffffff"

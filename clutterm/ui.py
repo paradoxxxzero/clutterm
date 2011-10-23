@@ -49,7 +49,7 @@ class Clutterm(object):
                            self.set_title, self.bell)
 
         self.cursor = Clutter.Rectangle()
-        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 100))
+        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 150))
         self.cursor.set_x(self.char_width * self.lexer.cursor.x)
         self.cursor.set_y(self.char_height * self.lexer.cursor.y)
         self.cursor.set_width(self.char_width)
@@ -108,8 +108,11 @@ class Clutterm(object):
         for line in self.lexer.damaged:
             self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
+        # color = Clutter.Color()
+        # color.from_string(self.lexer.current_fg)
+        # self.cursor.set_color(color)
         self.cursor.animatev(
-            Clutter.AnimationMode.EASE_OUT_BACK, 100,
+            Clutter.AnimationMode.LINEAR, 50,
             (
                 "x",
                 "y"
