@@ -173,8 +173,12 @@ class Clutterm(object):
             shaders[kval](self.linesBox)
             return
 
-        if kval == 65299:
+        elif kval == 65299:
             import pdb
             pdb.pm()
+
+        elif kval == 65387:
+            import pdb
+            pdb.set_trace()
 
         log.warn('Unknown keyval %d' % kval)

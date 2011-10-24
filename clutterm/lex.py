@@ -3,13 +3,21 @@ import re
 
 
 class Style(object):
-    def __init__(self,
-                 fg=None, bg=None, bold=None,
-                 reverse=False):
+    def __init__(self, fg=None, bg=None,
+                 bold=None, reverse=None):
         self.fg = fg
         self.bg = bg
         self.reverse = reverse
         self.bold = bold
+
+
+class Char(object):
+    def __init__(self, char, style=None):
+        self.char = char
+        self.style = style or Style()
+
+    def __repr__(self):
+        return self.char
 
 
 class Cursor(object):
@@ -22,7 +30,7 @@ class Matrix(object):
     def __init__(self, cols, rows, void=' '):
         self.cols = cols
         self.rows = rows
-        self.void = void
+        self.void = Char(void)
 
         self.matrix = [
             self.create_line() for i in range(self.rows)
@@ -129,9 +137,8 @@ class Lexer(object):
         self.cols = cols
         self.rows = rows
         self.matrix = Matrix(cols, rows)
-        self.styles = Matrix(cols, rows, None)
-        self.styles.put(0, 0, Style('white', 'black'))
-        self.end_styles = {}
+        self.style = Style('white', 'black')
+        self.end_style = None
         self.set_title = set_title
         self.bell = bell
         self.text_position = 0
@@ -141,7 +148,6 @@ class Lexer(object):
         self.cols = cols
         self.rows = rows
         self.matrix.resize(cols, rows)
-        self.styles.resize(cols, rows)
         if self.cursor.x > cols:
             self.cursor.x = cols - 1
         if self.cursor.y > rows:
@@ -180,14 +186,17 @@ class Lexer(object):
                 continue
 
             elif char == '\r':
+                self.matrix.getc(self.cursor).style = self.style
+                self.style = Style()
                 self.cursor.x = 0
                 continue
 
             elif char == '\n':
+                self.matrix.getc(self.cursor).style = self.style
+                self.style = Style()
                 self.cursor.x = 0
                 if self.cursor.y == self.rows - 1:
                     self.matrix.shift()
-                    self.styles.shift()
                     self.damaged = set(range(self.rows))
                 else:
                     self.cursor.y += 1
@@ -201,7 +210,8 @@ class Lexer(object):
                 continue
 
             self.damaged.add(self.cursor.y)
-            self.matrix.putc(self.cursor, char)
+            self.matrix.putc(self.cursor, Char(char, self.style))
+            self.style = Style()
             self.cursor.x += 1
 
     def osc(self, osc):
@@ -226,11 +236,6 @@ class Lexer(object):
         self.text_position += len(csi.group(0)) - 1
 
     def csi_m(self, m, n):
-        style = self.styles.get(self.cursor.x, self.cursor.y)
-        if not style:
-            style = Style()
-            self.styles.put(self.cursor.x, self.cursor.y, style)
-        style.reverse = None
         if m == -1:
             m = 0
 
@@ -239,29 +244,32 @@ class Lexer(object):
             m = -1
 
         if m == 1:
-            style.bold = True
+            self.style.bold = True
         if m == 0:
-            style.bold = False
+            self.style.bold = False
+            self.style.reverse = False
 
         if n == 0:
-            style.fg = 'white'
-            style.bg = 'black'
+            self.style.bold = False
+            self.style.reverse = False
+            self.style.fg = 'white'
+            self.style.bg = 'black'
         elif n == 7:
-            style.reverse = True
+            self.style.reverse = True
         elif 30 <= n <= 37:
             if m != 1:
-                style.fg = color[n - 30]
+                self.style.fg = color[n - 30]
             else:
-                style.fg = bold_color[n - 30]
+                self.style.fg = bold_color[n - 30]
         elif n == 39:
-            style.fg = 'white'
+            self.style.fg = 'white'
         elif 40 <= n <= 47:
             if m != 1:
-                style.bg = color[n - 40]
+                self.style.bg = color[n - 40]
             else:
-                style.bg = bold_color[n - 40]
+                self.style.bg = bold_color[n - 40]
         elif n == 49:
-            style.bg = 'black'
+            self.style.bg = 'black'
 
     def csi_A(self, m, n):
         if m == -1:
@@ -328,7 +336,6 @@ class Lexer(object):
 
         for i in r:
             self.matrix.clear_line(i)
-            self.styles.clear_line(i)
             self.damaged.add(i)
 
     def csi_K(self, m, n):
@@ -340,7 +347,6 @@ class Lexer(object):
             r = range(self.cursor.x, self.cols - 1)
 
         self.matrix.erase_range(r, self.cursor.y)
-        self.styles.erase_range(r, self.cursor.y)
 
     def csi_d(self, m, n):
         m -= 1
@@ -380,15 +386,14 @@ class Lexer(object):
         bg = 'black'
         bold = False
         reverse = False
-        end_style = self.end_styles.get(y - 1, None)
-        if end_style:
-            fg = end_style.fg
-            bg = end_style.bg
-            bold = end_style.bold
-            reverse = end_style.reverse
+        if self.end_style:
+            fg = self.end_style.fg
+            bg = self.end_style.bg
+            bold = self.end_style.bold
+            reverse = self.end_style.reverse
 
         for i in range(0, self.cols):
-            style = self.styles.get(i, y)
+            style = line[i].style
             if style:
                 closure = make_close_tag(bold)
                 if style.fg:
@@ -399,19 +404,20 @@ class Lexer(object):
                     bold = False
                 if style.bold:
                     bold = True
-                reverse = style.reverse
-                line[i] = closure + make_tag(fg, bg, reverse, bold) + line[i]
+                if style.reverse is False:
+                    reverse = False
+                if style.reverse:
+                    reverse = True  # not reverse
+                line[i] = "%s%s%s" % (
+                    closure, make_tag(fg, bg, reverse, bold), line[i])
 
         line[0] = make_tag(
-            fg, bg, end_style and end_style.reverse,
-            end_style and end_style.bold) + line[0]
+            fg, bg, self.end_style and self.end_style.reverse,
+            self.end_style and self.end_style.bold) + line[0]
         line[self.cols - 1] += make_close_tag(bold)
-        self.end_styles[y] = Style(fg, bg, bold, reverse)
+        self.end_style = Style(fg, bg, bold, reverse)
         return ''.join(line)
 
     @property
     def current_fg(self):
-        style = self.styles.getc(self.cursor)
-        if style:
-            return style.fg or "#ffffff"
-        return "#ffffff"
+        return self.style.fg or "#ffffff"
