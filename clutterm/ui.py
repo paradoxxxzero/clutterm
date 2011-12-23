@@ -47,6 +47,14 @@ class Clutterm(object):
         self.lexer = Lexer(self.shell.cols, self.shell.rows,
                            self.set_title, self.bell)
 
+        self.cursor = Clutter.Rectangle()
+        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 150))
+        self.cursor.set_x(self.char_width * self.lexer.cursor.x)
+        self.cursor.set_y(self.char_height * self.lexer.cursor.y)
+        self.cursor.set_width(self.char_width)
+        self.cursor.set_height(self.char_height)
+        self.mainStage.add_actor(self.cursor)
+
         def resize(a0, a1):
             w = self.mainStage.get_width()
             h = self.mainStage.get_height()
@@ -97,8 +105,21 @@ class Clutterm(object):
 
         self.lexer.lex(text)
         for line in self.lexer.damaged:
-            self.set_line(line, self.lexer.matrix.get_line(line))
+            self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
+        # color = Clutter.Color()
+        # color.from_string(self.lexer.current_fg)
+        # self.cursor.set_color(color)
+        self.cursor.animatev(
+            Clutter.AnimationMode.LINEAR, 50,
+            (
+                "x",
+                "y"
+            ), (
+                self.char_width * self.lexer.cursor.x,
+                self.char_height * self.lexer.cursor.y
+            )
+        )
 
     def set_title(self, text):
         self.mainStage.set_title(text)
@@ -125,7 +146,7 @@ class Clutterm(object):
 
     def set_line(self, line, text):
         log.debug("D%d %r" % (line, text))
-        self.lines[line].set_markup('<span>%s</span>' % text)
+        self.lines[line].set_markup(text)
 
     def destroy(self):
         Clutter.main_quit()
@@ -151,8 +172,12 @@ class Clutterm(object):
             shaders[kval](self.linesBox)
             return
 
-        if kval == 65299:
+        elif kval == 65299:
             import pdb
             pdb.pm()
+
+        elif kval == 65387:
+            import pdb
+            pdb.set_trace()
 
         log.warn('Unknown keyval %d' % kval)

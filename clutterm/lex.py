@@ -1,13 +1,24 @@
-from collections import namedtuple
 from .colors import color, bold_color, color256
 import logging
 import re
 
 
 class Style(object):
-    def __init__(self, foreground, background):
-        self.foreground = foreground
-        self.background = background
+    def __init__(self, fg=None, bg=None,
+                 bold=None, reverse=None):
+        self.fg = fg
+        self.bg = bg
+        self.reverse = reverse
+        self.bold = bold
+
+
+class Char(object):
+    def __init__(self, char, style=None):
+        self.char = char
+        self.style = style or Style()
+
+    def __repr__(self):
+        return self.char
 
 
 class Cursor(object):
@@ -17,13 +28,13 @@ class Cursor(object):
 
 
 class Matrix(object):
-    def __init__(self, cols, rows):
+    def __init__(self, cols, rows, void=' '):
         self.cols = cols
         self.rows = rows
+        self.void = Char(void)
 
         self.matrix = [
-            [' ' for i in range(self.cols)]
-            for i in range(self.rows)
+            self.create_line() for i in range(self.rows)
         ]
 
     def putc(self, cursor, char):
@@ -45,32 +56,39 @@ class Matrix(object):
             return self.matrix[y][x]
         else:
             log.debug('Get Out %d %d' % (x, y))
-            return ' '
+            return self.void
 
     def get_line(self, y):
         if 0 <= y < self.rows:
-            return ''.join(self.matrix[y])
-        return ''
+            return self.matrix[y]
 
     def shift(self):
         self.matrix.pop(0)
-        self.matrix.append([' ' for i in range(self.cols)])
+        self.matrix.append(self.create_line())
 
-    def clear(self, y):
-        self.matrix[y] = [' ' for i in range(self.cols)]
+    def clear_line(self, y):
+        self.matrix[y] = self.create_line()
+
+    def create_line(self, size=None):
+        size = size or self.cols
+        return [self.void for i in range(size)]
+
+    def erase_range(self, rng, y):
+        for i in rng:
+            self.matrix[y][i] = self.void
 
     def resize(self, cols, rows):
         if rows > self.rows:
             for i in range(rows - self.rows):
-                self.matrix.append([' ' for i in range(self.cols)])
+                self.matrix.append(self.create_line())
         elif rows < self.rows:
             for i in range(self.rows - rows):
                 self.matrix.pop(0)
 
         if cols > self.cols:
             for i in range(self.rows):
-                self.matrix[i] = self.matrix[i] + [
-                    ' ' for i in range(self.cols)]
+                self.matrix[i] = self.matrix[i] + self.create_line(
+                    cols - self.cols)
         elif cols < self.cols:
             for i in range(self.rows):
                 self.matrix[i] = self.matrix[i][:(self.cols - cols)]
@@ -100,6 +118,8 @@ class Lexer(object):
         self.cols = cols
         self.rows = rows
         self.matrix = Matrix(cols, rows)
+        self.style = Style('white', 'black')
+        self.end_style = None
         self.set_title = set_title
         self.bell = bell
         self.text_position = 0
@@ -147,10 +167,14 @@ class Lexer(object):
                 continue
 
             elif char == '\r':
+                self.matrix.getc(self.cursor).style = self.style
+                self.style = Style()
                 self.cursor.x = 0
                 continue
 
             elif char == '\n':
+                self.matrix.getc(self.cursor).style = self.style
+                self.style = Style()
                 self.cursor.x = 0
                 if self.cursor.y == self.rows - 1:
                     self.matrix.shift()
@@ -167,7 +191,8 @@ class Lexer(object):
                 continue
 
             self.damaged.add(self.cursor.y)
-            self.matrix.putc(self.cursor, char)
+            self.matrix.putc(self.cursor, Char(char, self.style))
+            self.style = Style()
             self.cursor.x += 1
 
     def osc(self, osc):
@@ -193,40 +218,44 @@ class Lexer(object):
         self.text_position += len(csi.group(0)) - 1
 
     def csi_m(self, m, n, o):
+        if m == -1:
+            m = 0
+
         if n == -1:
             n = m
             m = -1
-        if n == 7:
-            #FIXME
-            style = '</span><span foreground="black" background="white">'
+
+        if m == 1:
+            self.style.bold = True
+        if m == 0:
+            self.style.bold = False
+            self.style.reverse = False
+
+        if n == 0:
+            self.style.bold = False
+            self.style.reverse = False
+            self.style.fg = 'white'
+            self.style.bg = 'black'
+        elif n == 7:
+            self.style.reverse = True
         elif 30 <= n <= 37:
             if m != 1:
-                style = ('</span><span foreground="%s">' %
-                         color[n - 30])
+                self.style.fg = color[n - 30]
             else:
-                style = ('</span><span foreground="%s">' %
-                         bold_color[n - 30])
+                self.style.fg = bold_color[n - 30]
+        elif n == 39:
+            self.style.fg = 'white'
+        elif m == 38 and n == 5:
+            self.style.fg = color256[o]
         elif 40 <= n <= 47:
             if m != 1:
-                style = ('</span><span background="%s">' %
-                         color[n - 40])
+                self.style.bg = color[n - 40]
             else:
-                style = ('</span><span background="%s">' %
-                         bold_color[n - 40])
-        elif m == 38 and n == 5:
-            style = ('</span><span foreground="%s">' %
-                         color256[o])
+                self.style.bg = bold_color[n - 40]
+        elif n == 49:
+            self.style.bg = 'black'
         elif m == 48 and n == 5:
-            style = ('</span><span background="%s">' %
-                         color256[o])
-        else:
-            style = '</span><span>'
-        # FIXME
-        self.matrix.put(
-            self.cursor.x - 1, self.cursor.y,
-            self.matrix.get(
-                self.cursor.x - 1, self.cursor.y)
-            + style)
+            self.style.bg = color256[o]
 
     def csi_A(self, m, n, o):
         if m == -1:
@@ -292,7 +321,7 @@ class Lexer(object):
             r = range(self.cursor.y, self.rows)
 
         for i in r:
-            self.matrix.clear(i)
+            self.matrix.clear_line(i)
             self.damaged.add(i)
 
     def csi_K(self, m, n, o):
@@ -303,8 +332,7 @@ class Lexer(object):
         else:
             r = range(self.cursor.x, self.cols - 1)
 
-        for i in r:
-            self.matrix.put(i, self.cursor.y, ' ')
+        self.matrix.erase_range(r, self.cursor.y)
 
     def csi_d(self, m, n, o):
         m -= 1
@@ -313,3 +341,69 @@ class Lexer(object):
 
     def csi_f(self, m, n, o):
         self.csi_H(m, n)
+
+    def get_line(self, y):
+        line = self.matrix.get_line(y)
+        if not line:
+            return ''
+
+        def make_close_tag(bold):
+            tag = ''
+            if bold:
+                tag += '</b>'
+            tag += '</span>'
+            return tag
+
+        def make_tag(fg, bg, reverse=False, bold=False):
+            if reverse:
+                fg, bg = bg, fg
+            tag = '<span foreground="%s"' % fg
+            # Externalize this
+            if bg != 'black':
+                tag += ' background="%s"' % bg
+            tag += '>'
+            if bold:
+                tag += '<b>'
+            return tag
+
+        line = list(line)
+        # Externalize this
+        fg = 'white'
+        bg = 'black'
+        bold = False
+        reverse = False
+        if self.end_style:
+            fg = self.end_style.fg
+            bg = self.end_style.bg
+            bold = self.end_style.bold
+            reverse = self.end_style.reverse
+
+        for i in range(0, self.cols):
+            style = line[i].style
+            if style:
+                closure = make_close_tag(bold)
+                if style.fg:
+                    fg = style.fg
+                if style.bg:
+                    bg = style.bg
+                if style.bold is False:
+                    bold = False
+                if style.bold:
+                    bold = True
+                if style.reverse is False:
+                    reverse = False
+                if style.reverse:
+                    reverse = True  # not reverse
+                line[i] = "%s%s%s" % (
+                    closure, make_tag(fg, bg, reverse, bold), line[i])
+
+        line[0] = make_tag(
+            fg, bg, self.end_style and self.end_style.reverse,
+            self.end_style and self.end_style.bold) + line[0]
+        line[self.cols - 1] += make_close_tag(bold)
+        self.end_style = Style(fg, bg, bold, reverse)
+        return ''.join(line)
+
+    @property
+    def current_fg(self):
+        return self.style.fg or "#ffffff"
