@@ -7,7 +7,6 @@ from .lex import Lexer
 import logging
 log = logging.getLogger('clutterm')
 
-# Define some standard colors to make basic color assigments easier
 colorWhite = Clutter.Color.new(255, 255, 255, 255)
 colorRed = Clutter.Color.new(255, 0, 0, 255)
 colorBlack = Clutter.Color.new(0, 0, 0, 200)

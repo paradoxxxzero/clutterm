@@ -1,6 +1,13 @@
 from collections import namedtuple
+from .colors import color, bold_color, color256
 import logging
 import re
+
+
+class Style(object):
+    def __init__(self, foreground, background):
+        self.foreground = foreground
+        self.background = background
 
 
 class Cursor(object):
@@ -72,27 +79,7 @@ class Matrix(object):
 
 
 log = logging.getLogger('clutterm')
-color = (
-    '#262524',
-    '#bf4646',
-    '#67b25f',
-    '#cfc44e',
-    '#516083',
-    '#ca6eff',
-    '#92b2f8',
-    '#d5d5d5'
-)
 
-bold_color = (
-    '#292827',
-    '#f48a8a',
-    '#a5d79f',
-    '#e1da84',
-    '#a2bbff',
-    '#e2b0ff',
-    '#bacdf8',
-    '#ffffff'
-)
 
 escape_chars = {
     '<': '&lt;',
@@ -100,7 +87,7 @@ escape_chars = {
     '&': '&amp;'
 }
 
-csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?([a-zA-Z@])')
+csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?(;(\d*))?([a-zA-Z@])')
 osc_re = re.compile(r'\x1b\](\d+);(.*)\x07')
 dg_re = re.compile(r'\x1b[\(\)\*\+][\w\d=]')
 
@@ -193,18 +180,19 @@ class Lexer(object):
         self.text_position += len(osc.group(0)) - 1
 
     def csi(self, csi):
-        type = csi.group(5)
+        type = csi.group(7)
         opt = csi.group(1)
         m = int(csi.group(2) or -1)
         n = int(csi.group(4) or -1)
-        log.debug('csi %r %s %d %d' % (opt, type, m, n))
+        o = int(csi.group(6) or -1)
+        log.debug('csi %r %s %d %d %d' % (opt, type, m, n, o))
         if hasattr(self, 'csi_%s' % type):
-            getattr(self, 'csi_%s' % type)(m, n)
+            getattr(self, 'csi_%s' % type)(m, n, o)
         else:
             log.warn('Untreated csi %r' % csi.group(0))
         self.text_position += len(csi.group(0)) - 1
 
-    def csi_m(self, m, n):
+    def csi_m(self, m, n, o):
         if n == -1:
             n = m
             m = -1
@@ -225,6 +213,12 @@ class Lexer(object):
             else:
                 style = ('</span><span background="%s">' %
                          bold_color[n - 40])
+        elif m == 38 and n == 5:
+            style = ('</span><span foreground="%s">' %
+                         color256[o])
+        elif m == 48 and n == 5:
+            style = ('</span><span background="%s">' %
+                         color256[o])
         else:
             style = '</span><span>'
         # FIXME
@@ -234,50 +228,50 @@ class Lexer(object):
                 self.cursor.x - 1, self.cursor.y)
             + style)
 
-    def csi_A(self, m, n):
+    def csi_A(self, m, n, o):
         if m == -1:
             m = 1
         if self.cursor.y > 0:
             self.cursor.y -= m
 
-    def csi_B(self, m, n):
+    def csi_B(self, m, n, o):
         if m == -1:
             m = 1
         if self.cursor.y < self.rows:
             self.cursor.y += m
 
-    def csi_C(self, m, n):
+    def csi_C(self, m, n, o):
         if m == -1:
             m = 1
         if self.cursor.x < self.cols:
             self.cursor.x += m
 
-    def csi_D(self, m, n):
+    def csi_D(self, m, n, o):
         if m == -1:
             m = 1
         if self.cursor.x > 0:
             self.cursor.x -= m
 
-    def csi_E(self, m, n):
+    def csi_E(self, m, n, o):
         if m == -1:
             m = 1
         self.cursor.x = 0
         if self.cursor.y < self.rows:
             self.cursor.y += m
 
-    def csi_F(self, m, n):
+    def csi_F(self, m, n, o):
         if m == -1:
             m = 1
         self.cursor.x = 0
         if self.cursor.y > 0:
             self.cursor.y -= m
 
-    def csi_G(self, m, n):
+    def csi_G(self, m, n, o):
         m -= 1
         if 0 <= m <= self.cols:
             self.cursor.x = m
 
-    def csi_H(self, m, n):
+    def csi_H(self, m, n, o):
         if m == -1:
             m = 1
         if n == -1:
@@ -289,7 +283,7 @@ class Lexer(object):
             self.cursor.x = n
             self.cursor.y = m
 
-    def csi_J(self, m, n):
+    def csi_J(self, m, n, o):
         if m == 1:
             r = range(0, self.cursor.y)
         elif m == 2:
@@ -301,7 +295,7 @@ class Lexer(object):
             self.matrix.clear(i)
             self.damaged.add(i)
 
-    def csi_K(self, m, n):
+    def csi_K(self, m, n, o):
         if m == 1:
             r = range(0, self.cursor.x)
         elif m == 2:
@@ -312,10 +306,10 @@ class Lexer(object):
         for i in r:
             self.matrix.put(i, self.cursor.y, ' ')
 
-    def csi_d(self, m, n):
+    def csi_d(self, m, n, o):
         m -= 1
         if 0 <= m <= self.rows:
             self.cursor.y = m
 
-    def csi_f(self, m, n):
+    def csi_f(self, m, n, o):
         self.csi_H(m, n)
