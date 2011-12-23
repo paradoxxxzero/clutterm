@@ -157,11 +157,20 @@ class Clutterm(object):
         """
         uval = event.key.unicode_value
         kval = event.key.keyval
+        state = event.get_state()
 
         log.debug('u %r v %d' % (uval, kval))
 
         if uval != '':
             self.shell.write(uval)
+            return
+
+        if (state & state.MOD1_MASK == state.MOD1_MASK):
+            # Alt key is on putting escape
+            self.shell.write('')
+
+        if kval == 65513:
+            # Alt key will be put later
             return
 
         if kval in special_keys:
@@ -172,11 +181,11 @@ class Clutterm(object):
             shaders[kval](self.linesBox)
             return
 
-        elif kval == 65299:
+        elif kval == 65480:
             import pdb
             pdb.pm()
 
-        elif kval == 65387:
+        elif kval == 65481:
             import pdb
             pdb.set_trace()
 

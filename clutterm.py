@@ -24,3 +24,4 @@ Clutter.init(sys.argv)
 app = Clutterm()
 
 Clutter.main()
+log.info('Main exited')

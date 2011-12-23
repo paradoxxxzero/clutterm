@@ -73,9 +73,9 @@ class Shell(object):
                     os.close(i)
                 except OSError:
                     pass
-            self.env = {}
+            self.env = os.environ
             self.env["TERM"] = "xterm"
-            # self.env["COLORTERM"] = "clutterm"
+            self.env["COLORTERM"] = "clutterm"
             self.env["SHELL"] = self.shell
             p = Popen(self.shell, env=self.env)
             p.wait()
