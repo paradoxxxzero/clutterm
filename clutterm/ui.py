@@ -1,6 +1,7 @@
 from gi.repository import Clutter
+from time import time
 from .shell import Shell, ReaderAsync
-from .shader import shaders
+from .shader import shaders, apply_glsl_effect
 from .bindings import special_keys
 from .lex import Lexer
 
@@ -18,6 +19,8 @@ class Clutterm(object):
         """
         Build the user interface.
         """
+        self.itime = time()
+        self.shader = None
         self.font = "Mono 10"
         self.mainStage = Clutter.Stage.new()
         self.mainStage.set_title("Clutterminal")
@@ -55,19 +58,6 @@ class Clutterm(object):
         self.cursor.set_height(self.char_height)
         self.mainStage.add_actor(self.cursor)
 
-        def resize(a0, a1):
-            w = self.mainStage.get_width()
-            h = self.mainStage.get_height()
-            cols = int(w / self.char_width)
-            rows = int(h / self.char_height)
-            log.info('resize %s %s %s %s' % (w, h, cols, rows))
-            self.shell.resize(cols, rows)
-            self.lexer.resize(cols, rows)
-            self.linesBox.set_geometry(self.mainStage.get_geometry())
-            if rows > len(self.lines):
-                for i in range(rows - len(self.lines)):
-                    self.lines.append(create_line())
-
         def create_line():
             line = Clutter.Text()
             line.set_color(colorWhite)
@@ -81,15 +71,28 @@ class Clutterm(object):
             self.linesBox.add_actor(line)
             return line
 
+        def resize(a0, a1):
+            w = self.mainStage.get_width()
+            h = self.mainStage.get_height()
+            cols = int(w / self.char_width)
+            rows = int(h / self.char_height)
+            log.info('resize %s %s %s %s' % (w, h, cols, rows))
+            self.shell.resize(cols, rows)
+            self.lexer.resize(cols, rows)
+            self.linesBox.set_geometry(self.mainStage.get_geometry())
+            if rows > len(self.lines):
+                for i in range(rows - len(self.lines)):
+                    self.lines.append(create_line())
+
         self.lines = [create_line()
                       for i in range(self.shell.rows)]
 
         self.thread = ReaderAsync(self.shell, self.write)
         self.thread.start()
 
+        Clutter.threads_add_timeout(1, 40, self.tick, None)
         # Setup key bindings on the terminal
         self.mainStage.connect_after("key-press-event", self.onKeyPress)
-
         self.mainStage.connect_after("notify::width", resize)
         self.mainStage.connect_after("notify::height", resize)
         self.mainStage.set_size(
@@ -148,6 +151,12 @@ class Clutterm(object):
         log.debug("D%d %r" % (line, text))
         self.lines[line].set_markup(text)
 
+    def tick(self, _):
+        if self.shader:
+            self.shader.set_uniform_value(
+                'time', time() - self.itime)
+        return True
+
     def destroy(self):
         Clutter.main_quit()
 
@@ -178,7 +187,15 @@ class Clutterm(object):
             return
 
         if kval in shaders:
+            self.shader = None
             shaders[kval](self.linesBox)
+            return
+
+        if kval == 65475:
+            self.shader = apply_glsl_effect(
+                self.linesBox,
+                self.mainStage.get_width(),
+                self.mainStage.get_height())
             return
 
         elif kval == 65480:

@@ -1,6 +1,7 @@
 from .colors import color, bold_color, color256
 import logging
 import re
+log = logging.getLogger('clutterm')
 
 
 class Style(object):
@@ -84,6 +85,7 @@ class Matrix(object):
         elif rows < self.rows:
             for i in range(self.rows - rows):
                 self.matrix.pop(0)
+        self.rows = rows
 
         if cols > self.cols:
             for i in range(self.rows):
@@ -91,12 +93,8 @@ class Matrix(object):
                     cols - self.cols)
         elif cols < self.cols:
             for i in range(self.rows):
-                self.matrix[i] = self.matrix[i][:(self.cols - cols)]
+                self.matrix[i] = self.matrix[i][:(cols - self.cols)]
         self.cols = cols
-        self.rows = rows
-
-
-log = logging.getLogger('clutterm')
 
 
 escape_chars = {
@@ -115,8 +113,6 @@ class Lexer(object):
 
     def __init__(self, cols, rows, set_title, bell):
         self.cursor = Cursor(0, 0)
-        self.cols = cols
-        self.rows = rows
         self.matrix = Matrix(cols, rows)
         self.style = Style('white', 'black')
         self.end_style = None
@@ -126,8 +122,6 @@ class Lexer(object):
         self.damaged = set()
 
     def resize(self, cols, rows):
-        self.cols = cols
-        self.rows = rows
         self.matrix.resize(cols, rows)
         if self.cursor.x > cols:
             self.cursor.x = cols - 1
@@ -214,7 +208,8 @@ class Lexer(object):
         if hasattr(self, 'csi_%s' % type):
             getattr(self, 'csi_%s' % type)(m, n, o)
         else:
-            log.warn('Untreated csi %r' % csi.group(0))
+            log.warn('Untreated csi of type: %s %r' % (
+                type, csi.group(0)))
         self.text_position += len(csi.group(0)) - 1
 
     def csi_m(self, m, n, o):
@@ -380,7 +375,7 @@ class Lexer(object):
 
         for i in range(0, self.cols):
             style = line[i].style
-            if style:
+            if style.fg or style.bg or style.bold or style.reverse:
                 closure = make_close_tag(bold)
                 if style.fg:
                     fg = style.fg
@@ -396,6 +391,8 @@ class Lexer(object):
                     reverse = True  # not reverse
                 line[i] = "%s%s%s" % (
                     closure, make_tag(fg, bg, reverse, bold), line[i])
+            else:
+                line[i] = str(line[i])
 
         line[0] = make_tag(
             fg, bg, self.end_style and self.end_style.reverse,
@@ -407,3 +404,11 @@ class Lexer(object):
     @property
     def current_fg(self):
         return self.style.fg or "#ffffff"
+
+    @property
+    def cols(self):
+        return self.matrix.cols
+
+    @property
+    def rows(self):
+        return self.matrix.rows

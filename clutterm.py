@@ -21,7 +21,8 @@ GObject.threads_init()
 Clutter.threads_init()
 Clutter.init(sys.argv)
 
-app = Clutterm()
+Clutterm()
 
+log.info('Starting main')
 Clutter.main()
 log.info('Main exited')
