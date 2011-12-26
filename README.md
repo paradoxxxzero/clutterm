@@ -23,6 +23,7 @@ What's not
 ----------
 
 Almost everything else:
+
   - Remaining xterm escapes
   - Bugs in escapes handling
   - Text selection
