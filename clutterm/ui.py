@@ -21,7 +21,7 @@ class Clutterm(object):
         """
         self.itime = time()
         self.shader = None
-        self.font = "Mono 12"
+        self.font = "Mono 10"
         self.size = None, None
         self.mainStage = Clutter.Stage.new()
         self.mainStage.set_title("Clutterminal")
