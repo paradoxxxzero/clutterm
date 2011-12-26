@@ -5,6 +5,8 @@ A clutter based terminal written in pure python (no vte lib).
 
 This is a work in progress and it's far from ready for every day use.
 
+[![](http://i.imgur.com/ipMb8l.jpg)](http://i.imgur.com/SZnA2.jpg)
+
 
 What's working ?
 ----------------
