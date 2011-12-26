@@ -49,6 +49,8 @@ class Shell(object):
 
     def write(self, text):
         log.info('W     <%r>' % text)
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
         self.writer.write(text)
         self.writer.flush()
 
