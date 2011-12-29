@@ -9,18 +9,27 @@ class Style(object):
                  bold=None, reverse=None):
         self.fg = fg
         self.bg = bg
-        self.reverse = reverse
         self.bold = bold
+        self.reverse = reverse
+
+    def copy(self):
+        return Style(self.fg, self.bg, self.bold, self.reverse)
 
     def __repr__(self):
-        return "Style(bg=%s, fg=%s, reverse=%s, bold=%s)" % (
-            self.bg, self.fg, self.reverse, self.bold)
+        return "Style(bg=%s, fg=%s, bold=%s, reverse=%s)" % (
+            self.bg, self.fg, self.bold, self.reverse)
+
+    def __eq__(self, other):
+        return (self.fg == other.fg and
+                self.bg == other.bg and
+                self.bold == other.bold and
+                self.reverse == other.reverse)
 
     def __bool__(self):
         return (self.fg is not None or
                 self.bg is not None or
-                self.reverse is not None or
-                self.bold is not None)
+                self.bold is not None or
+                self.reverse is not None)
     __nonzero__ = __bool__
 
 
@@ -125,7 +134,7 @@ class Lexer(object):
     def __init__(self, cols, rows, set_title, bell):
         self.cursor = Cursor(0, 0)
         self.matrix = Matrix(cols, rows)
-        self.style = Style('white', 'black')
+        self.style = Style()
         self.end_style = None
         self.set_title = set_title
         self.bell = bell
@@ -185,8 +194,6 @@ class Lexer(object):
                     self.damaged = set(range(self.rows))
                 else:
                     self.cursor.y += 1
-                self.matrix.getc(self.cursor).style = self.style
-                self.style = Style()
                 continue
 
             elif char == '\x08':
@@ -199,7 +206,7 @@ class Lexer(object):
             log.debug("Damaging current line %d" % self.cursor.y)
             self.damaged.add(self.cursor.y)
             self.matrix.putc(self.cursor, Char(char, self.style))
-            self.style = Style()
+            self.style = self.style.copy()
             self.cursor.x += 1
 
     def osc(self, osc):
@@ -242,8 +249,8 @@ class Lexer(object):
         if n == 0:
             self.style.bold = False
             self.style.reverse = False
-            self.style.fg = 'white'
-            self.style.bg = 'black'
+            self.style.fg = False
+            self.style.bg = False
         elif n == 7:
             self.style.reverse = True
         elif 30 <= n <= 37:
@@ -252,7 +259,7 @@ class Lexer(object):
             else:
                 self.style.fg = bold_color[n - 30]
         elif n == 39:
-            self.style.fg = 'white'
+            self.style.fg = False
         elif m == 38 and n == 5:
             self.style.fg = color256[o]
         elif 40 <= n <= 47:
@@ -261,7 +268,7 @@ class Lexer(object):
             else:
                 self.style.bg = bold_color[n - 40]
         elif n == 49:
-            self.style.bg = 'black'
+            self.style.bg = False
         elif m == 48 and n == 5:
             self.style.bg = color256[o]
 
@@ -341,6 +348,7 @@ class Lexer(object):
             r = range(self.cursor.x, self.cols - 1)
 
         self.matrix.erase_range(r, self.cursor.y)
+        self.damaged.add(self.cursor.y)
 
     def csi_d(self, m, n, o):
         m -= 1
@@ -354,6 +362,7 @@ class Lexer(object):
         line = self.matrix.get_line(y)
         if not line:
             return ''
+        line = line[:]
 
         def make_close_tag(bold):
             tag = ''
@@ -362,56 +371,56 @@ class Lexer(object):
             tag += '</span>'
             return tag
 
-        def make_tag(fg, bg, reverse=False, bold=False):
-            log.debug('Make tag with fg=%s bg=%s reverse=%s bold=%s' % (
-                fg, bg, reverse, bold))
-            if reverse:
+        def make_tag(style):
+            log.debug('Make tag with %r' % style)
+            fg = style.fg or 'white'
+            bg = style.bg or 'black'
+
+            if style.reverse:
                 fg, bg = bg, fg
-            tag = '<span foreground="%s"' % fg
-            tag += ' background="%s"' % bg
+            tag = '<span'
+            if fg:
+                tag += ' foreground="%s"' % fg
+            if bg:
+                tag += ' background="%s"' % bg
             tag += '>'
-            if bold:
+            if style.bold:
                 tag += '<b>'
             return tag
 
-        line = list(line)
-        # Externalize this
-        fg = 'white'
-        bg = 'black'
-        bold = False
-        reverse = False
         if self.end_style:
-            fg = self.end_style.fg
-            bg = self.end_style.bg
-            bold = self.end_style.bold
-            reverse = self.end_style.reverse
+            current = self.end_style.copy()
+        else:
+            current = Style()
 
         for i in range(0, self.cols):
             style = line[i].style
-            if style:
-                closure = make_close_tag(bold)
-                if style.fg:
-                    fg = style.fg
-                if style.bg:
-                    bg = style.bg
-                if style.bold is False:
-                    bold = False
-                if style.bold:
-                    bold = True
-                if style.reverse is False:
-                    reverse = False
-                if style.reverse:
-                    reverse = True
+            if style and style != current:
+                log.debug("New style %r with current %r" % (style, current))
+                closure = make_close_tag(current.bold)
+                if style.fg is not None:
+                    current.fg = style.fg
+
+                if style.bg is not None:
+                    current.bg = style.bg
+
+                if style.bold is not None:
+                    current.bold = style.bold
+
+                if style.reverse is not None:
+                    current.reverse = style.reverse
+
                 line[i] = "%s%s%s" % (
-                    closure, make_tag(fg, bg, reverse, bold), line[i])
+                    closure, make_tag(current), line[i])
             else:
                 line[i] = str(line[i])
 
         line[0] = make_tag(
-            fg, bg, self.end_style and self.end_style.reverse,
-            self.end_style and self.end_style.bold) + line[0]
-        line[self.cols - 1] += make_close_tag(bold)
-        self.end_style = Style(fg, bg, bold, reverse)
+            Style(current.fg, current.bg,
+                  self.end_style and self.end_style.bold,
+                  self.end_style and self.end_style.reverse)) + line[0]
+        line[self.cols - 1] += make_close_tag(current.bold)
+        self.end_style = current
         return ''.join(line)
 
     @property

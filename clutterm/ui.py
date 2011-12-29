@@ -50,10 +50,9 @@ class Clutterm(object):
 
         def create_line(i):
             line = Clutter.Text()
-            line.set_color(Clutter.Color.new(255, 255, 255, 255))
+            # We must never see this color:
+            line.set_color(Clutter.Color.new(255, 0, 255, 255))
             line.set_font_name(self.font)
-            line.set_selectable(True)
-            line.set_cursor_visible(True)
             line.set_y(i * self.char_height)
             self.linesGroup.add_actor(line)
             return line
@@ -97,8 +96,8 @@ class Clutterm(object):
             return
 
         self.lexer.lex(text)
-        log.debug('Damaged: %r' % self.lexer.damaged)
         for line in self.lexer.damaged:
+            log.info('Setting line: %d' % line)
             self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
 

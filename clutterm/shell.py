@@ -60,7 +60,7 @@ class Shell(object):
         try:
             read = self.reader.read()
         except IOError:
-            log.exception('Got an IO')
+            log.info('IO on reader, pty is dead')
             if self.end_callback:
                 self.end_callback()
             self.still_alive = False
