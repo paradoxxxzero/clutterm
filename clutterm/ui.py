@@ -8,38 +8,35 @@ from .lex import Lexer
 import logging
 log = logging.getLogger('clutterm')
 
-colorWhite = Clutter.Color.new(255, 255, 255, 255)
-colorRed = Clutter.Color.new(255, 0, 0, 255)
-colorBlack = Clutter.Color.new(0, 0, 0, 200)
-
 
 class Clutterm(object):
 
-    def __init__(self):
+    def __init__(self, options):
         """
         Build the user interface.
         """
         self.itime = time()
         self.shader = None
-        self.font = "Mono 10"
+        self.font = "%s %s" % (options.font_name, options.font_size)
         self.size = None, None
-        self.mainStage = Clutter.Stage.new()
-        self.mainStage.set_title("Clutterminal")
+        self.mainStage = Clutter.Stage.get_default()
+        self.mainStage.set_title("Clutterm")
         self.mainStage.set_reactive(True)
         self.mainStage.set_user_resizable(True)
-        self.mainStage.set_use_alpha(True)
-        self.mainStage.set_color(colorBlack)
+        if options.transparency > 0:
+            self.mainStage.set_use_alpha(True)
+        self.mainStage.set_color(
+            Clutter.Color.new(0, 0, 0, 255 - options.transparency))
 
         # Create lines group
         self.linesGroup = Clutter.Group()
         self.mainStage.add_actor(self.linesGroup)
         dummy_text = Clutter.Text()
         dummy_text.set_font_name(self.font)
-        dummy_text.set_text("&")
+        dummy_text.set_text("#")
         self.char_width = dummy_text.get_width()
         self.char_height = dummy_text.get_height()
-
-        self.shell = Shell(end_callback=self.destroy)
+        self.shell = Shell(options, end_callback=self.destroy)
         self.lexer = Lexer(self.shell.cols, self.shell.rows,
                            self.set_title, self.bell)
 
@@ -53,9 +50,7 @@ class Clutterm(object):
 
         def create_line(i):
             line = Clutter.Text()
-            line.set_color(colorWhite)
-            line.set_cursor_color(colorRed)
-            line.set_selected_text_color(colorRed)
+            line.set_color(Clutter.Color.new(255, 255, 255, 255))
             line.set_font_name(self.font)
             line.set_selectable(True)
             line.set_cursor_visible(True)
@@ -82,7 +77,7 @@ class Clutterm(object):
         self.lines = [create_line(i)
                       for i in range(self.shell.rows)]
 
-        self.thread = ReaderAsync(self.shell, self.write)
+        self.thread = ReaderAsync(self.shell, self.write, self.destroy)
         self.thread.start()
 
         # Clutter.threads_add_timeout(300, 40, self.tick, None)
@@ -151,6 +146,7 @@ class Clutterm(object):
         return True
 
     def destroy(self):
+        log.info('Quitting main')
         Clutter.main_quit()
 
     def onKeyPress(self, actor=None, event=None, data=None):

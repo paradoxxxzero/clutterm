@@ -45,6 +45,7 @@ class Matrix(object):
         if (0 <= y < self.rows and
             0 <= x < self.cols):
             self.matrix[y][x] = char
+            1/0
         else:
             log.debug('Put %s Out %d %d' % (char, x, y))
 

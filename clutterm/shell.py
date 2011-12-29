@@ -2,6 +2,7 @@ import io
 import os
 import pty
 import sys
+import shlex
 import fcntl
 import struct
 import termios
@@ -14,34 +15,56 @@ log = logging.getLogger('clutterm')
 
 
 class ReaderAsync(Thread):
-    def __init__(self, shell, callback):
+    def __init__(self, shell, callback, final_callback):
         self.shell = shell
         self.callback = callback
+        self.final_callback = final_callback
+        self.loop = True
         Thread.__init__(self)
 
     def run(self):
-        while True:
+        while self.loop:
+            log.debug('Waiting for select')
             select.select([self.shell.fd], [], [self.shell.fd])
-            GObject.idle_add(self.callback, self.shell.read())
+            log.debug('Reading because of select')
+            read = self.shell.read()
+            if read is None:
+                log.info('Read None, breaking select loop.')
+                break
+            log.debug('Calling callback')
+
+            def callback(*args):
+                try:
+                    self.callback(*args)
+                except Exception:
+                    log.exception('Exception on async callback')
+                    self.loop = False
+
+            GObject.idle_add(callback, read)
+            log.debug('Callback called')
+        log.info('ReaderAsync terminated, launching final callback')
+        self.final_callback()
 
 
 class Shell(object):
-    shell = os.getenv('SHELL')
 
-    def __init__(self, rows=40, cols=100, end_callback=None):
+    def __init__(self, options, rows=40, cols=100, end_callback=None):
         self.rows = rows
         self.cols = cols
         self.end_callback = end_callback
+        self.shell = options.shell or os.getenv('SHELL')
+        self.still_alive = True
         self.fork()
 
     def read(self):
         try:
             read = self.reader.read()
-        except IOError as e:
-            log.info('Got an io error %r, must be the end, quitting' % e)
+        except IOError:
+            log.exception('Got an IO')
             if self.end_callback:
                 self.end_callback()
-            sys.exit(0)
+            self.still_alive = False
+            return
         if read:
             log.info('R<%r>' % read)
 
@@ -78,9 +101,11 @@ class Shell(object):
             self.env = os.environ
             self.env["TERM"] = "xterm"
             self.env["COLORTERM"] = "clutterm"
-            self.env["SHELL"] = self.shell
-            p = Popen(self.shell, env=self.env)
+            command = shlex.split(self.shell)
+            self.env["SHELL"] = command[0]
+            p = Popen(command, env=self.env)
             p.wait()
+            log.info('Exiting...')
             sys.exit(0)
         else:
             # Parent
@@ -112,4 +137,6 @@ class Shell(object):
                 closefd=False
             )
 
-            return fd
+    def quit(self):
+        if self.still_alive:
+            self.write('')
