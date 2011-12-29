@@ -97,6 +97,7 @@ class Clutterm(object):
             return
 
         self.lexer.lex(text)
+        log.debug('Damaged: %r' % self.lexer.damaged)
         for line in self.lexer.damaged:
             self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()

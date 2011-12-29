@@ -12,6 +12,17 @@ class Style(object):
         self.reverse = reverse
         self.bold = bold
 
+    def __repr__(self):
+        return "Style(bg=%s, fg=%s, reverse=%s, bold=%s)" % (
+            self.bg, self.fg, self.reverse, self.bold)
+
+    def __bool__(self):
+        return (self.fg is not None or
+                self.bg is not None or
+                self.reverse is not None or
+                self.bold is not None)
+    __nonzero__ = __bool__
+
 
 class Char(object):
     def __init__(self, char, style=None):
@@ -45,7 +56,6 @@ class Matrix(object):
         if (0 <= y < self.rows and
             0 <= x < self.cols):
             self.matrix[y][x] = char
-            1/0
         else:
             log.debug('Put %s Out %d %d' % (char, x, y))
 
@@ -131,6 +141,7 @@ class Lexer(object):
 
     def lex(self, text):
         self.text_position = 0
+
         while self.text_position != len(text):
             char = text[self.text_position]
             csi = csi_re.match(text[self.text_position:])
@@ -162,20 +173,20 @@ class Lexer(object):
                 continue
 
             elif char == '\r':
-                self.matrix.getc(self.cursor).style = self.style
-                self.style = Style()
                 self.cursor.x = 0
                 continue
 
             elif char == '\n':
-                self.matrix.getc(self.cursor).style = self.style
-                self.style = Style()
                 self.cursor.x = 0
                 if self.cursor.y == self.rows - 1:
                     self.matrix.shift()
+                    log.debug(
+                        "Damaging screen because of newline at last line")
                     self.damaged = set(range(self.rows))
                 else:
                     self.cursor.y += 1
+                self.matrix.getc(self.cursor).style = self.style
+                self.style = Style()
                 continue
 
             elif char == '\x08':
@@ -185,6 +196,7 @@ class Lexer(object):
                 self.bell()
                 continue
 
+            log.debug("Damaging current line %d" % self.cursor.y)
             self.damaged.add(self.cursor.y)
             self.matrix.putc(self.cursor, Char(char, self.style))
             self.style = Style()
@@ -351,12 +363,12 @@ class Lexer(object):
             return tag
 
         def make_tag(fg, bg, reverse=False, bold=False):
+            log.debug('Make tag with fg=%s bg=%s reverse=%s bold=%s' % (
+                fg, bg, reverse, bold))
             if reverse:
                 fg, bg = bg, fg
             tag = '<span foreground="%s"' % fg
-            # Externalize this
-            if bg != 'black':
-                tag += ' background="%s"' % bg
+            tag += ' background="%s"' % bg
             tag += '>'
             if bold:
                 tag += '<b>'
@@ -376,7 +388,7 @@ class Lexer(object):
 
         for i in range(0, self.cols):
             style = line[i].style
-            if style.fg or style.bg or style.bold or style.reverse:
+            if style:
                 closure = make_close_tag(bold)
                 if style.fg:
                     fg = style.fg
@@ -389,7 +401,7 @@ class Lexer(object):
                 if style.reverse is False:
                     reverse = False
                 if style.reverse:
-                    reverse = True  # not reverse
+                    reverse = True
                 line[i] = "%s%s%s" % (
                     closure, make_tag(fg, bg, reverse, bold), line[i])
             else:

@@ -26,7 +26,7 @@ class ReaderAsync(Thread):
         while self.loop:
             log.debug('Waiting for select')
             select.select([self.shell.fd], [], [self.shell.fd])
-            log.debug('Reading because of select')
+            log.debug('Reading after select')
             read = self.shell.read()
             if read is None:
                 log.info('Read None, breaking select loop.')
@@ -39,9 +39,9 @@ class ReaderAsync(Thread):
                 except Exception:
                     log.exception('Exception on async callback')
                     self.loop = False
-
             GObject.idle_add(callback, read)
             log.debug('Callback called')
+
         log.info('ReaderAsync terminated, launching final callback')
         self.final_callback()
 
