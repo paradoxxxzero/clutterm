@@ -2,7 +2,7 @@ from gi.repository import Clutter
 from time import time
 from .shell import Shell, ReaderAsync
 from .shader import shaders, apply_glsl_effect
-from .bindings import special_keys
+from .bindings import special_keys, ctrl_special_keys
 from .lex import Lexer
 
 import logging
@@ -175,7 +175,10 @@ class Clutterm(object):
             return
 
         if kval in special_keys:
-            self.shell.write(special_keys[kval])
+            if (state & state.CONTROL_MASK == state.CONTROL_MASK):
+                self.shell.write(ctrl_special_keys[kval])
+            else:
+                self.shell.write(special_keys[kval])
             return
 
         if kval in shaders:
@@ -184,10 +187,7 @@ class Clutterm(object):
             return
 
         if kval == 65475:
-            self.shader = apply_glsl_effect(
-                self.linesGroup,
-                self.linesGroup.get_width(),
-                self.linesGroup.get_height())
+            self.shader = apply_glsl_effect(self.linesGroup)
             return
 
         elif kval == 65480:

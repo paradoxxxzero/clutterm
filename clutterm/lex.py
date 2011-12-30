@@ -137,6 +137,7 @@ class Lexer(object):
         self.alternate_cursor = Cursor(0, 0)
         self.matrix = Matrix(cols, rows)
         self.alternate_matrix = Matrix(cols, rows)
+        self.saved_cursor = Cursor(0, 0)
         self.style = Style()
         self.end_style = None
         self.set_title = set_title
@@ -393,6 +394,12 @@ class Lexer(object):
             self.style.bg = False
         elif m == 48 and n == 5:
             self.style.bg = color256[o]
+
+    def csi_s(self, m, n, o, opt):
+        self.saved_cursor = self.cursor
+
+    def csi_u(self, m, n, o, opt):
+        self.cursor = self.saved_cursor
 
     def get_line(self, y):
         line = self.matrix.get_line(y)

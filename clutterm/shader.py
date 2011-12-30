@@ -33,13 +33,13 @@ def apply_page_turn_effect(actor):
     actor.add_effect(effect)
 
 
-def apply_glsl_effect(actor, width, height):
+def apply_glsl_effect(actor):
     actor.clear_effects()
     effect = Clutter.ShaderEffect()
     effect.shader_type = 1
     effect.set_shader_source(open('gloom.glsl').read())
-    effect.set_uniform_value('width', width)
-    effect.set_uniform_value('height', height)
+    effect.set_uniform_value('width', actor.get_width())
+    effect.set_uniform_value('height', actor.get_height())
     actor.add_effect(effect)
     return effect
 
