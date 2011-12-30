@@ -47,7 +47,7 @@ class Clutterm(object):
         self.cursor.set_y(self.char_height * self.lexer.cursor.y)
         self.cursor.set_width(self.char_width)
         self.cursor.set_height(self.char_height)
-        self.linesGroup.add_actor(self.cursor)
+        self.mainStage.add_actor(self.cursor)
 
         def create_line(i):
             line = Clutter.Text()
