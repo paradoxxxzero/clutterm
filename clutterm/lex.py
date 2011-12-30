@@ -5,8 +5,7 @@ log = logging.getLogger('clutterm')
 
 
 class Style(object):
-    def __init__(self, fg=None, bg=None,
-                 bold=None, reverse=None):
+    def __init__(self, fg=None, bg=None, bold=None, reverse=None):
         self.fg = fg
         self.bg = bg
         self.bold = bold
@@ -16,8 +15,11 @@ class Style(object):
         return Style(self.fg, self.bg, self.bold, self.reverse)
 
     def __repr__(self):
-        return "Style(bg=%s, fg=%s, bold=%s, reverse=%s)" % (
-            self.bg, self.fg, self.bold, self.reverse)
+        if self:
+            return "Style(bg=%s, fg=%s, bold=%s, reverse=%s)" % (
+                self.bg, self.fg, self.bold, self.reverse)
+        else:
+            return "Style()"
 
     def __eq__(self, other):
         return (self.fg == other.fg and
@@ -39,7 +41,7 @@ class Char(object):
         self.style = style or Style()
 
     def __repr__(self):
-        return self.char
+        return "Char(%r)[%r]" % (self.char, self.style)
 
 
 class Cursor(object):
@@ -92,7 +94,7 @@ class Matrix(object):
 
     def create_line(self, size=None):
         size = size or self.cols
-        return [self.void for i in range(size)]
+        return [self.void] * size
 
     def erase_range(self, rng, y):
         for i in rng:
@@ -144,6 +146,7 @@ class Lexer(object):
         self.bell = bell
         self.text_position = 0
         self.damaged = set()
+        self.remaining = ''
 
     def resize(self, cols, rows):
         self.matrix.resize(cols, rows)
@@ -152,17 +155,19 @@ class Lexer(object):
             self.cursor.x = cols - 1
         if self.cursor.y > rows:
             self.cursor.y = rows - 1
+        log.info("Damaging on resize")
         self.damaged = set(range(self.rows))
 
     def lex(self, text):
         self.text_position = 0
-
+        text = self.remaining + text
         while self.text_position != len(text):
             char = text[self.text_position]
-            csi = csi_re.match(text[self.text_position:])
-            osc = osc_re.match(text[self.text_position:])
-            dg = dg_re.match(text[self.text_position:])
-            other = other_re.match(text[self.text_position:])
+            queue = text[self.text_position:]
+            csi = csi_re.match(queue)
+            osc = osc_re.match(queue)
+            dg = dg_re.match(queue)
+            other = other_re.match(queue)
 
             self.text_position += 1
 
@@ -172,6 +177,7 @@ class Lexer(object):
 
             elif csi:
                 self.csi(csi)
+                self.matrix.getc(self.cursor).style = self.style
                 continue
 
             elif osc:
@@ -192,7 +198,9 @@ class Lexer(object):
             elif char == '\x1b':
                 log.error('Unmatched escape %r' % (
                     text[self.text_position:][:10]))
-                continue
+                log.info('Trying later')
+                self.remaining = queue
+                break
 
             elif char == '\r':
                 self.cursor.x = 0
@@ -202,7 +210,7 @@ class Lexer(object):
                 self.cursor.x = 0
                 if self.cursor.y == self.rows - 1:
                     self.matrix.shift()
-                    log.debug(
+                    log.info(
                         "Damaging screen because of newline at last line")
                     self.damaged = set(range(self.rows))
                 else:
@@ -218,9 +226,11 @@ class Lexer(object):
 
             log.debug("Damaging current line %d" % self.cursor.y)
             self.damaged.add(self.cursor.y)
-            self.matrix.putc(self.cursor, Char(char, self.style))
+            self.matrix.putc(self.cursor, Char(char, self.style.copy()))
             self.style = self.style.copy()
             self.cursor.x += 1
+
+        self.remaining = ''
 
     def osc(self, osc):
         m = int(osc.group(1) or -1)
@@ -310,6 +320,7 @@ class Lexer(object):
 
         for i in r:
             self.matrix.clear_line(i)
+            log.info("Damaging line %i because of csi J" % i)
             self.damaged.add(i)
 
     def csi_K(self, m, n, o, opt):
@@ -321,6 +332,7 @@ class Lexer(object):
             r = range(self.cursor.x, self.cols - 1)
 
         self.matrix.erase_range(r, self.cursor.y)
+        log.info("Damaging line %i because of csi K" % self.cursor.y)
         self.damaged.add(self.cursor.y)
 
     def csi_X(self, m, n, o, opt):
@@ -330,6 +342,7 @@ class Lexer(object):
         self.matrix.erase_range(
             range(self.cursor.x, self.cursor.x + m),
             self.cursor.y)
+        log.info("Damaging line %i because of csi X" % self.cursor.y)
         self.damaged.add(self.cursor.y)
 
     def csi_d(self, m, n, o, opt):
@@ -346,6 +359,7 @@ class Lexer(object):
                 self.alternate_matrix, self.matrix)
             self.cursor, self.alternate_cursor = (
                 self.alternate_cursor, self.cursor)
+            log.info("Damaging screen because of csi h")
             self.damaged = set(range(self.rows))
 
     def csi_l(self, m, n, o, opt):
@@ -354,6 +368,7 @@ class Lexer(object):
                 self.alternate_matrix, self.matrix)
             self.cursor, self.alternate_cursor = (
                 self.alternate_cursor, self.cursor)
+            log.info("Damaging screen because of csi l")
             self.damaged = set(range(self.rows))
 
     def csi_m(self, m, n, o, opt):
@@ -418,10 +433,11 @@ class Lexer(object):
         def make_tag(style):
             log.debug('Make tag with %r' % style)
             fg = style.fg or 'white'
-            bg = style.bg  # or 'black' (Don't do this for transparency)
+            bg = style.bg
 
             if style.reverse:
-                fg, bg = bg, fg
+                fg, bg = bg or 'black', fg
+
             tag = '<span'
             if fg:
                 tag += ' foreground="%s"' % fg
@@ -437,7 +453,9 @@ class Lexer(object):
         else:
             current = Style()
 
-        for i in range(0, self.cols):
+        current = line[0].style.copy() or Style()  # current
+        line[0] = make_tag(current) + line[0].char
+        for i in range(1, self.cols):
             style = line[i].style
             if style and style != current:
                 log.debug("New style %r with current %r" % (style, current))
@@ -455,21 +473,17 @@ class Lexer(object):
                     current.reverse = style.reverse
 
                 line[i] = "%s%s%s" % (
-                    closure, make_tag(current), line[i])
+                    closure, make_tag(current), line[i].char)
             else:
-                line[i] = str(line[i])
+                line[i] = line[i].char
 
-        line[0] = make_tag(
-            Style(current.fg, current.bg,
-                  self.end_style and self.end_style.bold,
-                  self.end_style and self.end_style.reverse)) + line[0]
         line[self.cols - 1] += make_close_tag(current.bold)
         self.end_style = current
         return ''.join(line)
 
     @property
     def current_fg(self):
-        return self.style.fg or "#ffffff"
+        return self.style.fg or 'white'
 
     @property
     def cols(self):

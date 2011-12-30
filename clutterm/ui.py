@@ -172,7 +172,7 @@ class Clutterm(object):
             # Alt key is on putting escape
             self.shell.write('')
 
-        if kval == 65513:
+        if kval == 65513 or kval == 65507:
             # Alt key will be put later
             return
 
@@ -191,6 +191,15 @@ class Clutterm(object):
         if kval == 65475:
             self.shader = apply_glsl_effect(self.linesGroup)
             return
+
+        elif kval == 65478:
+            print('\n'.join("".join(str(i)) for i in self.lexer.matrix.matrix))
+
+        elif kval == 65479:
+            log.error(
+                '\n'.join(
+                    [self.lexer.get_line(line)
+                     for line in range(self.lexer.rows)]))
 
         elif kval == 65480:
             import pdb
