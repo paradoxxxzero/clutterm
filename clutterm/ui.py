@@ -42,7 +42,7 @@ class Clutterm(object):
                            self.set_title, self.bell)
 
         self.cursor = Clutter.Rectangle()
-        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 150))
+        self.cursor.set_color(Clutter.Color.new(255, 255, 255, 100))
         self.cursor.set_x(self.char_width * self.lexer.cursor.x)
         self.cursor.set_y(self.char_height * self.lexer.cursor.y)
         self.cursor.set_width(self.char_width)
@@ -176,37 +176,39 @@ class Clutterm(object):
             # Alt key will be put later
             return
 
+        if (state & state.SHIFT_MASK == state.SHIFT_MASK):
+            if kval in shaders:
+                self.shader = None
+                shaders[kval](self.linesGroup)
+                return
+
+            if kval == 65475:
+                self.shader = apply_glsl_effect(self.linesGroup)
+                return
+
+            elif kval == 65478:
+                from pprint import pprint
+                pprint(self.lexer.matrix.matrix)
+
+            elif kval == 65479:
+                log.error(
+                    '\n'.join(
+                        [self.lexer.get_line(line)
+                         for line in range(self.lexer.rows)]))
+
+            elif kval == 65480:
+                import pdb
+                pdb.pm()
+
+            elif kval == 65481:
+                import pdb
+                pdb.set_trace()
+
         if kval in special_keys:
             if (state & state.CONTROL_MASK == state.CONTROL_MASK):
                 self.shell.write(ctrl_special_keys[kval])
             else:
                 self.shell.write(special_keys[kval])
             return
-
-        if kval in shaders:
-            self.shader = None
-            shaders[kval](self.linesGroup)
-            return
-
-        if kval == 65475:
-            self.shader = apply_glsl_effect(self.linesGroup)
-            return
-
-        elif kval == 65478:
-            print('\n'.join("".join(str(i)) for i in self.lexer.matrix.matrix))
-
-        elif kval == 65479:
-            log.error(
-                '\n'.join(
-                    [self.lexer.get_line(line)
-                     for line in range(self.lexer.rows)]))
-
-        elif kval == 65480:
-            import pdb
-            pdb.pm()
-
-        elif kval == 65481:
-            import pdb
-            pdb.set_trace()
 
         log.warn('Unknown keyval %d' % kval)
