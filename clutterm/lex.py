@@ -228,7 +228,13 @@ class Lexer(object):
 
             if self.cursor.x >= self.cols:
                 self.cursor.x = 0
-                self.cursor.y += 1
+                if self.cursor.y == self.rows - 1:
+                    self.matrix.shift()
+                    log.debug(
+                        "Damaging screen because of newline at last line")
+                    self.damaged = set(range(self.rows))
+                else:
+                    self.cursor.y += 1
 
             log.debug("Damaging current line %d" % self.cursor.y)
             self.damaged.add(self.cursor.y)
