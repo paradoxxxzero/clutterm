@@ -126,6 +126,7 @@ escape_chars = {
 csi_re = re.compile(r'\x1b\[(\?)?(\d*)(;(\d*))?(;(\d*))?([a-zA-Z@])')
 osc_re = re.compile(r'\x1b\](\d+);(.*)\x07')
 dg_re = re.compile(r'\x1b[\(\)\*\+][\w\d=]')
+other_re = re.compile(r'\x1b[78=>Fclmno|\}~]')
 
 
 class Lexer(object):
@@ -133,7 +134,9 @@ class Lexer(object):
 
     def __init__(self, cols, rows, set_title, bell):
         self.cursor = Cursor(0, 0)
+        self.alternate_cursor = Cursor(0, 0)
         self.matrix = Matrix(cols, rows)
+        self.alternate_matrix = Matrix(cols, rows)
         self.style = Style()
         self.end_style = None
         self.set_title = set_title
@@ -143,6 +146,7 @@ class Lexer(object):
 
     def resize(self, cols, rows):
         self.matrix.resize(cols, rows)
+        self.alternate_matrix.resize(cols, rows)
         if self.cursor.x > cols:
             self.cursor.x = cols - 1
         if self.cursor.y > rows:
@@ -156,6 +160,7 @@ class Lexer(object):
             csi = csi_re.match(text[self.text_position:])
             osc = osc_re.match(text[self.text_position:])
             dg = dg_re.match(text[self.text_position:])
+            other = other_re.match(text[self.text_position:])
 
             self.text_position += 1
 
@@ -173,7 +178,13 @@ class Lexer(object):
 
             elif dg:
                 # Ignoring Designate G[0-3]
+                log.info('Ignoring designate group %s' % dg.group(0))
                 self.text_position += len(dg.group(0)) - 1
+                continue
+
+            elif other:
+                log.info('Ignoring escape %s' % other.group(0))
+                self.text_position += len(other.group(0)) - 1
                 continue
 
             elif char == '\x1b':
@@ -220,62 +231,62 @@ class Lexer(object):
 
     def csi(self, csi):
         type = csi.group(7)
-        opt = csi.group(1)
+        opt = csi.group(1) == '?'
         m = int(csi.group(2) or -1)
         n = int(csi.group(4) or -1)
         o = int(csi.group(6) or -1)
         log.debug('csi %r %s %d %d %d' % (opt, type, m, n, o))
         if hasattr(self, 'csi_%s' % type):
-            getattr(self, 'csi_%s' % type)(m, n, o)
+            getattr(self, 'csi_%s' % type)(m, n, o, opt)
         else:
             log.warn('Untreated csi of type: %s %r' % (
                 type, csi.group(0)))
         self.text_position += len(csi.group(0)) - 1
 
-    def csi_A(self, m, n, o):
+    def csi_A(self, m, n, o, opt):
         if m == -1:
             m = 1
         if self.cursor.y > 0:
             self.cursor.y -= m
 
-    def csi_B(self, m, n, o):
+    def csi_B(self, m, n, o, opt):
         if m == -1:
             m = 1
         if self.cursor.y < self.rows:
             self.cursor.y += m
 
-    def csi_C(self, m, n, o):
+    def csi_C(self, m, n, o, opt):
         if m == -1:
             m = 1
         if self.cursor.x < self.cols:
             self.cursor.x += m
 
-    def csi_D(self, m, n, o):
+    def csi_D(self, m, n, o, opt):
         if m == -1:
             m = 1
         if self.cursor.x > 0:
             self.cursor.x -= m
 
-    def csi_E(self, m, n, o):
+    def csi_E(self, m, n, o, opt):
         if m == -1:
             m = 1
         self.cursor.x = 0
         if self.cursor.y < self.rows:
             self.cursor.y += m
 
-    def csi_F(self, m, n, o):
+    def csi_F(self, m, n, o, opt):
         if m == -1:
             m = 1
         self.cursor.x = 0
         if self.cursor.y > 0:
             self.cursor.y -= m
 
-    def csi_G(self, m, n, o):
+    def csi_G(self, m, n, o, opt):
         m -= 1
         if 0 <= m <= self.cols:
             self.cursor.x = m
 
-    def csi_H(self, m, n, o):
+    def csi_H(self, m, n, o, opt):
         if m == -1:
             m = 1
         if n == -1:
@@ -287,7 +298,7 @@ class Lexer(object):
             self.cursor.x = n
             self.cursor.y = m
 
-    def csi_J(self, m, n, o):
+    def csi_J(self, m, n, o, opt):
         if m == 1:
             r = range(0, self.cursor.y)
         elif m == 2:
@@ -299,7 +310,7 @@ class Lexer(object):
             self.matrix.clear_line(i)
             self.damaged.add(i)
 
-    def csi_K(self, m, n, o):
+    def csi_K(self, m, n, o, opt):
         if m == 1:
             r = range(0, self.cursor.x)
         elif m == 2:
@@ -310,7 +321,7 @@ class Lexer(object):
         self.matrix.erase_range(r, self.cursor.y)
         self.damaged.add(self.cursor.y)
 
-    def csi_X(self, m, n, o):
+    def csi_X(self, m, n, o, opt):
         if m == -1:
             m = 1
 
@@ -319,15 +330,31 @@ class Lexer(object):
             self.cursor.y)
         self.damaged.add(self.cursor.y)
 
-    def csi_d(self, m, n, o):
+    def csi_d(self, m, n, o, opt):
         m -= 1
         if 0 <= m <= self.rows:
             self.cursor.y = m
 
-    def csi_f(self, m, n, o):
+    def csi_f(self, m, n, o, opt):
         self.csi_H(m, n)
 
-    def csi_m(self, m, n, o):
+    def csi_h(self, m, n, o, opt):
+        if opt and m == 1049:
+            self.matrix, self.alternate_matrix = (
+                self.alternate_matrix, self.matrix)
+            self.cursor, self.alternate_cursor = (
+                self.alternate_cursor, self.cursor)
+            self.damaged = set(range(self.rows))
+
+    def csi_l(self, m, n, o, opt):
+        if opt and m == 1049:
+            self.matrix, self.alternate_matrix = (
+                self.alternate_matrix, self.matrix)
+            self.cursor, self.alternate_cursor = (
+                self.alternate_cursor, self.cursor)
+            self.damaged = set(range(self.rows))
+
+    def csi_m(self, m, n, o, opt):
         if m == -1:
             m = 0
 
