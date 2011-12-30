@@ -54,6 +54,8 @@ class Clutterm(object):
             # We must never see this color:
             line.set_color(Clutter.Color.new(255, 0, 255, 255))
             line.set_font_name(self.font)
+            line.set_width(self.char_width * self.shell.cols)
+            line.set_height(self.char_height)
             line.set_y(i * self.char_height)
             self.linesGroup.add_actor(line)
             return line

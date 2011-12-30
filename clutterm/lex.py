@@ -152,6 +152,7 @@ class Lexer(object):
             self.cursor.x = cols - 1
         if self.cursor.y > rows:
             self.cursor.y = rows - 1
+        self.damaged = set(range(self.rows))
 
     def lex(self, text):
         self.text_position = 0
@@ -417,7 +418,7 @@ class Lexer(object):
         def make_tag(style):
             log.debug('Make tag with %r' % style)
             fg = style.fg or 'white'
-            bg = style.bg or 'black'
+            bg = style.bg  # or 'black' (Don't do this for transparency)
 
             if style.reverse:
                 fg, bg = bg, fg
