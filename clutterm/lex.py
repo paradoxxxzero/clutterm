@@ -69,7 +69,7 @@ class Matrix(object):
             0 <= x < self.cols):
             self.matrix[y + self.scroll][x] = char
         else:
-            log.debug('Put %s Out %d %d' % (char, x, y))
+            log.info('Put %s Out %d %d' % (char, x, y))
 
     def getc(self, cursor):
         return self.get(cursor.x, cursor.y)
@@ -79,7 +79,7 @@ class Matrix(object):
             0 <= x < self.cols):
             return self.matrix[y + self.scroll][x]
         else:
-            log.debug('Get Out %d %d' % (x, y))
+            log.info('Get Out %d %d' % (x, y))
             return self.void
 
     def get_line(self, y):
@@ -226,6 +226,10 @@ class Lexer(object):
                 self.bell()
                 continue
 
+            if self.cursor.x >= self.cols:
+                self.cursor.x = 0
+                self.cursor.y += 1
+
             log.debug("Damaging current line %d" % self.cursor.y)
             self.damaged.add(self.cursor.y)
             self.matrix.putc(self.cursor, Char(char, self.style.copy()))
@@ -329,9 +333,9 @@ class Lexer(object):
         if m == 1:
             r = range(0, self.cursor.x)
         elif m == 2:
-            r = range(0, self.cols - 1)
+            r = range(0, self.cols)
         else:
-            r = range(self.cursor.x, self.cols - 1)
+            r = range(self.cursor.x, self.cols)
 
         self.matrix.erase_range(r, self.cursor.y)
         log.debug("Damaging line %i because of csi K" % self.cursor.y)
