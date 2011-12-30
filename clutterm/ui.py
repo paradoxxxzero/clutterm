@@ -17,6 +17,7 @@ class Clutterm(object):
         """
         self.itime = time()
         self.shader = None
+        self.destroyed = False
         self.font = "%s %s" % (options.font_name, options.font_size)
         self.size = None, None
         self.mainStage = Clutter.Stage.get_default()
@@ -146,8 +147,10 @@ class Clutterm(object):
         return True
 
     def destroy(self):
-        log.info('Quitting main')
-        Clutter.main_quit()
+        if not self.destroyed:
+            log.info('Quitting main')
+            Clutter.main_quit()
+            self.destroyed = True
 
     def onKeyPress(self, actor=None, event=None, data=None):
         """
