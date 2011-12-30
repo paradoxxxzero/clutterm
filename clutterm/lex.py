@@ -232,46 +232,6 @@ class Lexer(object):
                 type, csi.group(0)))
         self.text_position += len(csi.group(0)) - 1
 
-    def csi_m(self, m, n, o):
-        if m == -1:
-            m = 0
-
-        if n == -1:
-            n = m
-            m = -1
-
-        if m == 1:
-            self.style.bold = True
-        if m == 0:
-            self.style.bold = False
-            self.style.reverse = False
-
-        if n == 0:
-            self.style.bold = False
-            self.style.reverse = False
-            self.style.fg = False
-            self.style.bg = False
-        elif n == 7:
-            self.style.reverse = True
-        elif 30 <= n <= 37:
-            if m != 1:
-                self.style.fg = color[n - 30]
-            else:
-                self.style.fg = bold_color[n - 30]
-        elif n == 39:
-            self.style.fg = False
-        elif m == 38 and n == 5:
-            self.style.fg = color256[o]
-        elif 40 <= n <= 47:
-            if m != 1:
-                self.style.bg = color[n - 40]
-            else:
-                self.style.bg = bold_color[n - 40]
-        elif n == 49:
-            self.style.bg = False
-        elif m == 48 and n == 5:
-            self.style.bg = color256[o]
-
     def csi_A(self, m, n, o):
         if m == -1:
             m = 1
@@ -350,6 +310,15 @@ class Lexer(object):
         self.matrix.erase_range(r, self.cursor.y)
         self.damaged.add(self.cursor.y)
 
+    def csi_X(self, m, n, o):
+        if m == -1:
+            m = 1
+
+        self.matrix.erase_range(
+            range(self.cursor.x, self.cursor.x + m),
+            self.cursor.y)
+        self.damaged.add(self.cursor.y)
+
     def csi_d(self, m, n, o):
         m -= 1
         if 0 <= m <= self.rows:
@@ -357,6 +326,46 @@ class Lexer(object):
 
     def csi_f(self, m, n, o):
         self.csi_H(m, n)
+
+    def csi_m(self, m, n, o):
+        if m == -1:
+            m = 0
+
+        if n == -1:
+            n = m
+            m = -1
+
+        if m == 1:
+            self.style.bold = True
+        if m == 0:
+            self.style.bold = False
+            self.style.reverse = False
+
+        if n == 0:
+            self.style.bold = False
+            self.style.reverse = False
+            self.style.fg = False
+            self.style.bg = False
+        elif n == 7:
+            self.style.reverse = True
+        elif 30 <= n <= 37:
+            if m != 1:
+                self.style.fg = color[n - 30]
+            else:
+                self.style.fg = bold_color[n - 30]
+        elif n == 39:
+            self.style.fg = False
+        elif m == 38 and n == 5:
+            self.style.fg = color256[o]
+        elif 40 <= n <= 47:
+            if m != 1:
+                self.style.bg = color[n - 40]
+            else:
+                self.style.bg = bold_color[n - 40]
+        elif n == 49:
+            self.style.bg = False
+        elif m == 48 and n == 5:
+            self.style.bg = color256[o]
 
     def get_line(self, y):
         line = self.matrix.get_line(y)
