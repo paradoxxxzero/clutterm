@@ -65,7 +65,7 @@ class Clutterm(object):
             h = self.mainStage.get_height()
             cols = int(w / self.char_width)
             rows = int(h / self.char_height)
-            if (cols, rows) == (self.lexer.cols, self.shell.rows):
+            if (cols, rows) == (self.lexer.matrix.cols, self.shell.rows):
                 return
             log.info('resize %s %s %s %s' % (w, h, cols, rows))
             self.shell.resize(cols, rows)
