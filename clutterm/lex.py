@@ -55,6 +55,7 @@ class Matrix(object):
         self.cols = cols
         self.rows = rows
         self.void = Char(void)
+        self.scroll = 0
 
         self.matrix = [
             self.create_line() for i in range(self.rows)
@@ -66,7 +67,7 @@ class Matrix(object):
     def put(self, x, y, char):
         if (0 <= y < self.rows and
             0 <= x < self.cols):
-            self.matrix[y][x] = char
+            self.matrix[y + self.scroll][x] = char
         else:
             log.debug('Put %s Out %d %d' % (char, x, y))
 
@@ -76,21 +77,22 @@ class Matrix(object):
     def get(self, x, y):
         if (0 <= y < self.rows and
             0 <= x < self.cols):
-            return self.matrix[y][x]
+            return self.matrix[y + self.scroll][x]
         else:
             log.debug('Get Out %d %d' % (x, y))
             return self.void
 
     def get_line(self, y):
         if 0 <= y < self.rows:
-            return self.matrix[y]
+            return self.matrix[y + self.scroll]
 
     def shift(self):
-        self.matrix.pop(0)
+        # self.matrix.pop(0)
+        self.scroll += 1
         self.matrix.append(self.create_line())
 
     def clear_line(self, y):
-        self.matrix[y] = self.create_line()
+        self.matrix[y + self.scroll] = self.create_line()
 
     def create_line(self, size=None):
         size = size or self.cols
@@ -98,15 +100,15 @@ class Matrix(object):
 
     def erase_range(self, rng, y):
         for i in rng:
-            self.matrix[y][i] = self.void
+            self.matrix[y + self.scroll][i] = self.void
 
     def resize(self, cols, rows):
         if rows > self.rows:
             for i in range(rows - self.rows):
                 self.matrix.append(self.create_line())
-        elif rows < self.rows:
-            for i in range(self.rows - rows):
-                self.matrix.pop(0)
+        # elif rows < self.rows:
+            # for i in range(self.rows - rows):
+                # self.matrix.pop(0)
         self.rows = rows
 
         if cols > self.cols:
@@ -155,7 +157,7 @@ class Lexer(object):
             self.cursor.x = cols - 1
         if self.cursor.y > rows:
             self.cursor.y = rows - 1
-        log.info("Damaging on resize")
+        log.debug("Damaging on resize")
         self.damaged = set(range(self.rows))
 
     def lex(self, text):
@@ -186,19 +188,19 @@ class Lexer(object):
 
             elif dg:
                 # Ignoring Designate G[0-3]
-                log.info('Ignoring designate group %s' % dg.group(0))
+                log.debug('Ignoring designate group %s' % dg.group(0))
                 self.text_position += len(dg.group(0)) - 1
                 continue
 
             elif other:
-                log.info('Ignoring escape %s' % other.group(0))
+                log.debug('Ignoring escape %s' % other.group(0))
                 self.text_position += len(other.group(0)) - 1
                 continue
 
             elif char == '\x1b':
                 log.error('Unmatched escape %r' % (
                     text[self.text_position:][:10]))
-                log.info('Trying later')
+                log.debug('Trying later')
                 self.remaining = queue
                 break
 
@@ -210,7 +212,7 @@ class Lexer(object):
                 self.cursor.x = 0
                 if self.cursor.y == self.rows - 1:
                     self.matrix.shift()
-                    log.info(
+                    log.debug(
                         "Damaging screen because of newline at last line")
                     self.damaged = set(range(self.rows))
                 else:
@@ -320,7 +322,7 @@ class Lexer(object):
 
         for i in r:
             self.matrix.clear_line(i)
-            log.info("Damaging line %i because of csi J" % i)
+            log.debug("Damaging line %i because of csi J" % i)
             self.damaged.add(i)
 
     def csi_K(self, m, n, o, opt):
@@ -332,7 +334,7 @@ class Lexer(object):
             r = range(self.cursor.x, self.cols - 1)
 
         self.matrix.erase_range(r, self.cursor.y)
-        log.info("Damaging line %i because of csi K" % self.cursor.y)
+        log.debug("Damaging line %i because of csi K" % self.cursor.y)
         self.damaged.add(self.cursor.y)
 
     def csi_X(self, m, n, o, opt):
@@ -342,7 +344,7 @@ class Lexer(object):
         self.matrix.erase_range(
             range(self.cursor.x, self.cursor.x + m),
             self.cursor.y)
-        log.info("Damaging line %i because of csi X" % self.cursor.y)
+        log.debug("Damaging line %i because of csi X" % self.cursor.y)
         self.damaged.add(self.cursor.y)
 
     def csi_d(self, m, n, o, opt):
@@ -359,7 +361,7 @@ class Lexer(object):
                 self.alternate_matrix, self.matrix)
             self.cursor, self.alternate_cursor = (
                 self.alternate_cursor, self.cursor)
-            log.info("Damaging screen because of csi h")
+            log.debug("Damaging screen because of csi h")
             self.damaged = set(range(self.rows))
 
     def csi_l(self, m, n, o, opt):
@@ -368,7 +370,7 @@ class Lexer(object):
                 self.alternate_matrix, self.matrix)
             self.cursor, self.alternate_cursor = (
                 self.alternate_cursor, self.cursor)
-            log.info("Damaging screen because of csi l")
+            log.debug("Damaging screen because of csi l")
             self.damaged = set(range(self.rows))
 
     def csi_m(self, m, n, o, opt):
