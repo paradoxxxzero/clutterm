@@ -2,13 +2,9 @@ from clutterm.lex import Lexer
 from clutterm.colors import color
 
 
-def nop():
-    pass
-
-
 class TestColors(object):
     def test_foreground(self):
-        lexer = Lexer(80, 24, nop, nop)
+        lexer = Lexer(80, 1)
         lexer.lex('Lorem [31mIpsum')
         assert lexer.get_line(0) == (
             '<span foreground="white">Lorem </span>'
@@ -17,7 +13,7 @@ class TestColors(object):
             '</span>') % (color[1], ' ' * 69)
 
     def test_foreground_multi(self):
-        lexer = Lexer(80, 24, nop, nop)
+        lexer = Lexer(80, 1)
         lexer.lex('A[31mB[mC[32mD[0m')
         assert lexer.get_line(0) == (
             '<span foreground="white">A</span>'
@@ -29,7 +25,7 @@ class TestColors(object):
             '</span>') % (color[1], color[2], ' ' * 76)
 
     def test_background(self):
-        lexer = Lexer(80, 24, nop, nop)
+        lexer = Lexer(80, 1)
         lexer.lex('A[31m[45mB[mC[42mD[0m')
         assert lexer.get_line(0) == (
             '<span foreground="white">A</span>'
@@ -41,7 +37,7 @@ class TestColors(object):
             '</span>') % (color[1], color[5], color[2], ' ' * 76)
 
     def test_reverse(self):
-        lexer = Lexer(80, 24, nop, nop)
+        lexer = Lexer(80, 1)
         lexer.lex('A[31m[45mB[7mC[7mD[0m')
         assert lexer.get_line(0) == (
             '<span foreground="white">A</span>'
@@ -55,7 +51,7 @@ class TestColors(object):
                 ' ' * 76)
 
     def test_optimize(self):
-        lexer = Lexer(80, 24, nop, nop)
+        lexer = Lexer(80, 1)
         lexer.lex('A[31mB[31mC')
         assert lexer.get_line(0) == (
             '<span foreground="white">A</span>'

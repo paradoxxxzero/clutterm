@@ -1,12 +1,8 @@
 from clutterm.lex import Lexer
 
 
-def nop():
-    pass
-
-
 def test_cursor():
-    lexer = Lexer(10, 3, nop, nop)
+    lexer = Lexer(10, 3)
     assert lexer.matrix.cols == 10
     assert lexer.matrix.rows == 3
     assert lexer.matrix.scroll == 0

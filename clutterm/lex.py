@@ -139,7 +139,8 @@ other_re = re.compile(r'\x1b[78=>Fclmno|\}~]')
 class Lexer(object):
     """Mayhem parser"""
 
-    def __init__(self, cols, rows, set_title, bell):
+    def __init__(self, cols, rows,
+                 set_title=lambda x: x, bell=lambda: 0):
         self.cursor = Cursor(0, 0)
         self.alternate_cursor = Cursor(0, 0)
         self.matrix = Matrix(cols, rows)
