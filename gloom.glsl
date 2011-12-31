@@ -15,7 +15,7 @@ void main()
     for (float j = -r; j <= r; j++) {
       vec2 sh = vec2(i, j) / resolution.xy;
       if(i == 0. && j == 0.) d = .9;
-      else d = (sn + cos(time * 5.) / 10.) / (i*i + j*j);
+      else d = sn / (i*i + j*j);
       col += texture2D(tex, cogl_tex_coord_in[0].xy + sh) * d;
     }
   }

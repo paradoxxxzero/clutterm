@@ -49,6 +49,9 @@ class Cursor(object):
         self.x = x
         self.y = y
 
+    def __repr__(self):
+        return "Cursor(%d, %d)" % (self.x, self.y)
+
 
 class Matrix(object):
     def __init__(self, cols, rows, void=' '):
@@ -75,12 +78,12 @@ class Matrix(object):
         return self.get(cursor.x, cursor.y)
 
     def get(self, x, y):
-        # if (0 <= y < self.rows and
-            # 0 <= x < self.cols):
-        return self.matrix[y + self.scroll][x]
-        # else:
-            # log.info('Get Out %d %d' % (x, y))
-            # return self.void
+        if (0 <= y < self.rows and
+            0 <= x < self.cols):
+            return self.matrix[y + self.scroll][x]
+        else:
+            log.info('Get Out %d %d' % (x, y))
+            return self.void
 
     def get_line(self, y):
         if 0 <= y < self.rows:
@@ -242,6 +245,7 @@ class Lexer(object):
             self.damaged.add(self.cursor.y)
             self.matrix.putc(self.cursor, Char(char, self.style.copy()))
             self.cursor.x += 1
+            log.debug("Cursor at %r" % self.cursor)
 
         self.remaining = ''
 
