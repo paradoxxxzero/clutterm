@@ -8,7 +8,7 @@ import struct
 import termios
 import logging
 import select
-from gi.repository import GObject
+from gi.repository import Clutter
 from subprocess import Popen
 from threading import Thread
 log = logging.getLogger('clutterm')
@@ -39,7 +39,7 @@ class ReaderAsync(Thread):
                 except Exception:
                     log.exception('Exception on async callback')
                     self.loop = False
-            GObject.idle_add(callback, read)
+            Clutter.threads_add_idle(Clutter.PRIORITY_REDRAW, callback, read)
             log.debug('Callback called')
 
         log.info('ReaderAsync terminated, launching final callback')

@@ -6,7 +6,7 @@ import os
 def bench_simple_text_single_pass():
     for cols, rows in ((10, 10), (50, 25), (50, 100)):
         for size in (10, 100, 1000, 2000, 5000, 10000):
-            random = str(os.urandom(size))
+            random = os.urandom(size).decode('latin-1')
             lexer = Lexer(cols, rows)
             lex_timer = Timer()
             get_line_timer = Timer()

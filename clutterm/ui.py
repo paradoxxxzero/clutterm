@@ -100,7 +100,8 @@ class Clutterm(object):
 
         self.lexer.lex(text)
         for line in self.lexer.damaged:
-            log.debug('Setting line: %d' % line)
+            if __debug__:
+                log.debug('Setting line: %d' % line)
             self.set_line(line, self.lexer.get_line(line))
         self.lexer.damaged = set()
 
@@ -139,7 +140,8 @@ class Clutterm(object):
         )
 
     def set_line(self, line, text):
-        log.debug("D%d %r" % (line, text))
+        if __debug__:
+            log.debug("D%d %r" % (line, text))
         self.lines[line].set_markup(text)
 
     def tick(self, _):

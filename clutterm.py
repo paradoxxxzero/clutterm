@@ -64,10 +64,11 @@ if options.transparency > 0:
 GObject.threads_init()
 Clutter.threads_init()
 Clutter.init(sys.argv)
-
+Clutter.threads_enter()
 clutterm = Clutterm(options)
 
 log.info('Starting main')
 Clutter.main()
+Clutter.threads_leave()
 log.info('Main exited')
 clutterm.shell.quit()
