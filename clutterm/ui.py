@@ -160,9 +160,9 @@ class Clutterm(object):
         """
         Basic key binding handler
         """
-        uval = event.key.unicode_value
-        kval = event.key.keyval
-        state = event.get_state()
+        uval = event.unicode_value
+        kval = event.keyval
+        state = event.modifier_state
 
         log.debug('u %r v %d' % (uval, kval))
 
